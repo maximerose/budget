@@ -1,4 +1,6 @@
 .env
+__pychache__
+*.pyc
 
 *.diff
 repomix*

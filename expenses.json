@@ -1,0 +1,17 @@
+[
+    {
+        "amount": 50.0,
+        "title": "short",
+        "category": "Shopping"
+    },
+    {
+        "amount": 15.0,
+        "title": "",
+        "category": "Autoroute"
+    },
+    {
+        "amount": 30.0,
+        "title": "Leclerc",
+        "category": "Courses"
+    }
+]
