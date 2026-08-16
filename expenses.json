@@ -1,17 +1,22 @@
 [
     {
         "amount": 50.0,
-        "title": "short",
+        "label": "short",
         "category": "Shopping"
     },
     {
         "amount": 15.0,
-        "title": "",
+        "label": "",
         "category": "Autoroute"
     },
     {
         "amount": 30.0,
-        "title": "Leclerc",
+        "label": "Leclerc",
+        "category": "Courses"
+    },
+    {
+        "amount": 70.0,
+        "label": "Leclerc",
         "category": "Courses"
     }
 ]

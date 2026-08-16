@@ -1,10 +1,10 @@
-from storage import load_expenses, save_expenses
 from expenses import (
+    Expense,
     calculate_total,
-    create_expense,
     display_expenses,
     filter_by_category,
 )
+from storage import load_expenses, save_expenses
 
 EXPENSES_JSON = "expenses.json"
 
@@ -38,9 +38,9 @@ def main():
                         print(
                             "Erreur : Ce n'est pas un nombre valide (ex: 12,50 ou 12.50)"
                         )
-                title = input("Libellé de la dépense : ")
+                label = input("Libellé de la dépense : ")
                 category = input("Catégorie de de la dépense : ")
-                expenses.append(create_expense(amount, title, category))
+                expenses.append(Expense(amount, label, category))
                 save_expenses(expenses, EXPENSES_JSON)
                 print("Dépense ajoutée\n")
 
