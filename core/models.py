@@ -40,9 +40,9 @@ class GlobalSettings(BaseModel):
         max_digits=6, decimal_places=2, default=Decimal("25.00")
     )
 
+    def __str__(self) -> str:
+        return f"Limite tickets resto / jour : {self.daily_meal_voucher_limit}€"
+
     class Meta(BaseModel.Meta):
         verbose_name = "Global Setting"
         verbose_name_plural = "Global Settings"
-
-    def __str__(self) -> str:
-        return f"Limite tickets resto / jour : {self.daily_meal_voucher_limit}€"
