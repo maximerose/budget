@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.models import BaseModel, SoftDeleteModel
 
@@ -123,3 +124,34 @@ class RecurringExpenseShare(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Répartition de dépense"
         verbose_name_plural = "Répartitions de dépenses"
+
+
+class TransactionType(models.TextChoices):
+    INCOME = "INCOME", "Revenu"
+    EXPENSE = "EXPENSE", "Dépense"
+
+
+class Transaction(BaseModel):
+    transaction_date = models.DateField(default=timezone.localdate)
+    transaction_type = models.CharField(
+        max_length=20, choices=TransactionType.choices, default=TransactionType.EXPENSE
+    )
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    swile_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    )
+    label = models.CharField(max_length=100, blank=True, default="")
+    category = models.ForeignKey(
+        Category, on_delete=models.PROTECT, related_name="transactions"
+    )
+    bank_account = models.ForeignKey(
+        BankAccount, on_delete=models.CASCADE, related_name="transactions"
+    )
+
+    def __str__(self) -> str:
+        sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
+        return f"[{self.get_transaction_type_display()}] {self.transaction_date} - {self.category.name}: {sign}{self.total_amount} € ({self.label})"
+
+    class Meta(BaseModel.Meta):
+        verbose_name = "Transaction"
+        verbose_name_plural = "Transactions"

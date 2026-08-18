@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError
 from django.test import TestCase
 
 from budget.models import (
@@ -10,6 +11,8 @@ from budget.models import (
     HouseholdMember,
     RecurringExpense,
     RecurringExpenseShare,
+    Transaction,
+    TransactionType,
 )
 
 
@@ -25,13 +28,13 @@ class BudgetModelsTestCase(TestCase):
             current_balance=Decimal("1000.00"),
         )
 
-    def test_category_str(self):
+    def test_category_str(self) -> None:
         self.assertEqual(str(self.category), "Loyer")
 
-    def test_bank_account_str(self):
+    def test_bank_account_str(self) -> None:
         self.assertEqual(str(self.bank_account), "Compte courant (Compte courant)")
 
-    def test_recurring_expense_str_and_remaining_amount(self):
+    def test_recurring_expense_str_and_remaining_amount(self) -> None:
         # Création d'une charge de 600€
         expense = RecurringExpense.objects.create(
             label="Loyer",
@@ -54,7 +57,7 @@ class BudgetModelsTestCase(TestCase):
         # Il doit rester 300€ à répartir
         self.assertEqual(expense.get_remaining_amount_to_split(), Decimal("300.00"))
 
-    def test_recurring_expense_share_validation_exceeds_total(self):
+    def test_recurring_expense_share_validation_exceeds_total(self) -> None:
         expense = RecurringExpense.objects.create(
             label="Loyer",
             total_amount=Decimal("500.00"),
@@ -81,7 +84,7 @@ class BudgetModelsTestCase(TestCase):
         with self.assertRaises(ValidationError):
             share2.full_clean()
 
-    def test_category_protect_deletion(self):
+    def test_category_protect_deletion(self) -> None:
         # Vérifie qu'on ne peut pas supprimer une catégorie liée à une charge récurrente
         RecurringExpense.objects.create(
             label="Loyer",
@@ -89,5 +92,43 @@ class BudgetModelsTestCase(TestCase):
             category=self.category,
         )
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(ProtectedError):
             self.category.delete()
+
+    def test_transaction_creation_and_defaults(self) -> None:
+        # Test d'une dépense
+        expense_tx = Transaction.objects.create(
+            total_amount=Decimal("45.5"),
+            swile_amount=Decimal("15.00"),
+            label="Courses Leclerc",
+            category=self.category,
+            bank_account=self.bank_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+
+        self.assertEqual(expense_tx.transaction_type, TransactionType.EXPENSE)
+        self.assertEqual(expense_tx.total_amount, Decimal("45.50"))
+        self.assertEqual(expense_tx.swile_amount, Decimal("15.00"))
+        self.assertEqual(expense_tx.label, "Courses Leclerc")
+        self.assertIsNotNone(expense_tx.transaction_date)
+
+        # Test du __str__ pour une dépense
+        expected_expense_str = f"[Dépense] {expense_tx.transaction_date} - Loyer: -45.5 € (Courses Leclerc)"
+        self.assertEqual(str(expense_tx), expected_expense_str)
+
+        # Test d'un revenu
+        income_tx = Transaction.objects.create(
+            total_amount=Decimal("2500.00"),
+            label="Salaire",
+            category=self.category,
+            bank_account=self.bank_account,
+            transaction_type=TransactionType.INCOME,
+        )
+
+        self.assertEqual(income_tx.transaction_type, TransactionType.INCOME)
+
+        # Test du __str__ pour un revenu
+        expected_income_str = (
+            f"[Revenu] {income_tx.transaction_date} - Loyer: +2500.00 € (Salaire)"
+        )
+        self.assertEqual(str(income_tx), expected_income_str)
