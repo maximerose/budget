@@ -70,6 +70,7 @@ class RecurringExpense(BaseModel, SoftDeleteModel):
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)
     usual_due_day = models.DateField(null=True, blank=True)
     frequency_months = models.PositiveIntegerField(default=1)
+    is_variable = models.BooleanField(default=False)
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, related_name="recurring_expenses"
     )
@@ -99,9 +100,7 @@ class RecurringExpenseShare(BaseModel, SoftDeleteModel):
     amount = models.DecimalField(max_digits=15, decimal_places=2)
 
     def __str__(self) -> str:
-        return (
-            f"{self.recurring_expense.label} - {self.bank_account.name}: {self.amount}€"
-        )
+        return f"{self.recurring_expense.label} - {self.bank_account.name}: {self.amount} €"
 
     def clean(self) -> None:
         super().clean()
