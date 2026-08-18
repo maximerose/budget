@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -38,3 +39,16 @@ class BlameableModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class GlobalSettings(BaseModel):
+    daily_meal_voucher_limit = models.DecimalField(
+        max_digits=6, decimal_places=2, default=Decimal("25.00")
+    )
+
+    class Meta(BaseModel.Meta):
+        verbose_name = "Global Setting"
+        verbose_name_plural = "Global Settings"
+
+    def __str__(self) -> str:
+        return f"Limite tickets resto / jour : {self.daily_meal_voucher_limit}€"
