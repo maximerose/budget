@@ -1,16 +1,16 @@
 class Expense:
-    def __init__(self, amount: float, label: str, category: str) -> None:
+    def __init__(self, amount: float, category: str, label: str) -> None:
         self.amount = amount
-        self.label = label
         self.category = category
+        self.label = label
 
     def to_dict(self) -> dict:
-        return {"amount": self.amount, "label": self.label, "category": self.category}
+        return {"amount": self.amount, "category": self.category, "label": self.label}
 
     @classmethod
     def from_dict(cls, data: dict) -> "Expense":
         return cls(
-            amount=data["amount"], label=data["label"], category=data["category"]
+            amount=data["amount"], category=data["category"], label=data["label"]
         )
 
     def __str__(self) -> str:
@@ -19,9 +19,7 @@ class Expense:
 
 def display_expenses(expenses: list[Expense]) -> None:
     for index, expense in enumerate(expenses, start=1):
-        print(
-            f"{index}. {expense})"
-        )
+        print(f"{index}. {expense})")
     print("\n")
 
 

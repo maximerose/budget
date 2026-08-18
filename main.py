@@ -1,12 +1,10 @@
+from database import add_expense, create_tables, get_all_expenses, load_connection
 from expenses import (
     Expense,
     calculate_total,
     display_expenses,
     filter_by_category,
 )
-from storage import load_expenses, save_expenses
-
-EXPENSES_JSON = "expenses.json"
 
 
 def main():
@@ -18,7 +16,14 @@ def main():
         "5. Quitter",
     ]
 
-    expenses = load_expenses(EXPENSES_JSON)
+    conn = load_connection()
+    if not conn:
+        print("Erreur : Impossible de se connecter à la base de données")
+        return
+
+    create_tables(conn)
+
+    expenses = get_all_expenses(conn)
 
     while True:
         print("Que voulez-vous faire ?")
@@ -38,10 +43,13 @@ def main():
                         print(
                             "Erreur : Ce n'est pas un nombre valide (ex: 12,50 ou 12.50)"
                         )
-                label = input("Libellé de la dépense : ")
                 category = input("Catégorie de de la dépense : ")
-                expenses.append(Expense(amount, label, category))
-                save_expenses(expenses, EXPENSES_JSON)
+                label = input("Libellé de la dépense : ")
+
+                new_expense = Expense(amount, category, label)
+                add_expense(conn, new_expense)
+                expenses.append(new_expense)
+
                 print("Dépense ajoutée\n")
 
             case "2":
@@ -62,6 +70,7 @@ def main():
 
             case "5":
                 print("Au revoir")
+                conn.close()
                 return
 
             case _:
