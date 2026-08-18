@@ -155,3 +155,50 @@ class Transaction(BaseModel):
     class Meta(BaseModel.Meta):
         verbose_name = "Transaction"
         verbose_name_plural = "Transactions"
+
+
+class Transfer(BaseModel):
+    source_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.PROTECT,
+        related_name="transfers_sent",
+    )
+    destination_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.PROTECT,
+        related_name="transfers_received",
+    )
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+
+    def __str__(self) -> str:
+        return f"Transfert de {self.amount} € ({self.source_account.name} -> {self.destination_account.name})"
+
+    def clean(self) -> None:
+        super().clean()
+
+        if (
+            self.source_account.id
+            and self.source_account.id == self.destination_account.id
+        ):
+            raise ValidationError(
+                "Le compte source et le compte destination doivent être différents."
+            )
+
+    def save(self, *args, **kwargs) -> None:
+        is_new = self._state.adding
+
+        super().save(*args, **kwargs)
+
+        if is_new:
+            # Débiter le compte source
+            self.source_account.current_balance -= self.amount
+            self.source_account.save(update_fields=["current_balance"])
+
+            # Créditer le compte destination
+            self.destination_account.current_balance += self.amount
+            self.destination_account.save(update_fields=["current_balance"])
+
+    class Meta(BaseModel.Meta):
+        verbose_name = "Transfert"
+        verbose_name_plural = "Transferts"

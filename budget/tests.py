@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.utils import timezone
 
 from budget.models import (
     AccountType,
@@ -13,6 +14,7 @@ from budget.models import (
     RecurringExpenseShare,
     Transaction,
     TransactionType,
+    Transfer,
 )
 
 
@@ -98,7 +100,7 @@ class BudgetModelsTestCase(TestCase):
     def test_transaction_creation_and_defaults(self) -> None:
         # Test d'une dépense
         expense_tx = Transaction.objects.create(
-            total_amount=Decimal("45.5"),
+            total_amount=Decimal("45.50"),
             swile_amount=Decimal("15.00"),
             label="Courses Leclerc",
             category=self.category,
@@ -113,7 +115,7 @@ class BudgetModelsTestCase(TestCase):
         self.assertIsNotNone(expense_tx.transaction_date)
 
         # Test du __str__ pour une dépense
-        expected_expense_str = f"[Dépense] {expense_tx.transaction_date} - Loyer: -45.5 € (Courses Leclerc)"
+        expected_expense_str = f"[Dépense] {expense_tx.transaction_date} - Loyer: -45.50 € (Courses Leclerc)"
         self.assertEqual(str(expense_tx), expected_expense_str)
 
         # Test d'un revenu
@@ -132,3 +134,54 @@ class BudgetModelsTestCase(TestCase):
             f"[Revenu] {income_tx.transaction_date} - Loyer: +2500.00 € (Salaire)"
         )
         self.assertEqual(str(income_tx), expected_income_str)
+
+    def test_transfer_creation_and_str(self) -> None:
+        # Création d'un second compte pour le transfert
+        destination_account = BankAccount.objects.create(
+            name="Livret A",
+            account_type=AccountType.SAVINGS,
+            owner=self.member,
+            current_balance=Decimal("500.00"),
+        )
+
+        initial_source_balance = self.bank_account.current_balance
+        initial_destination_balance = destination_account.current_balance
+
+        transfer_date = timezone.localdate()
+        transfer = Transfer.objects.create(
+            source_account=self.bank_account,
+            destination_account=destination_account,
+            amount=Decimal("150.00"),
+            date=transfer_date,
+        )
+
+        self.assertEqual(transfer.source_account, self.bank_account)
+        self.assertEqual(transfer.destination_account, destination_account)
+        self.assertEqual(transfer.amount, Decimal("150.00"))
+        self.assertEqual(transfer.date, transfer_date)
+
+        expected_str = "Transfert de 150.00 € (Compte courant -> Livret A)"
+        self.assertEqual(str(transfer), expected_str)
+
+        # Vérifier que les soldes des comptes ont bien été mis à jour
+        self.bank_account.refresh_from_db()
+        destination_account.refresh_from_db()
+        self.assertEqual(
+            self.bank_account.current_balance,
+            initial_source_balance - Decimal("150.00"),
+        )
+        self.assertEqual(
+            destination_account.current_balance,
+            initial_destination_balance + Decimal("150.00"),
+        )
+
+    def test_transfer_same_account_validation(self) -> None:
+        # Interdire un virement vers le même compte
+        transfer = Transfer(
+            source_account=self.bank_account,
+            destination_account=self.bank_account,
+            amount=Decimal("50.0"),
+        )
+
+        with self.assertRaises(ValidationError):
+            transfer.full_clean()
