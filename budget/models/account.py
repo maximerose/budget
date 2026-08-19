@@ -42,10 +42,25 @@ class BankAccount(BaseModel, SoftDeleteModel):
     current_balance = models.DecimalField(
         max_digits=15, decimal_places=2, default=Decimal("0.0")
     )
+    daily_meal_voucher_limit = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True
+    )
 
     def __str__(self) -> str:
         account_type_label = AccountType(self.account_type).label
         return f"{self.name} ({account_type_label})"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.account_type == AccountType.MEAL_VOUCHER:
+            if not self.daily_meal_voucher_limit:
+                self.daily_meal_voucher_limit = Decimal("25.00")
+        else:
+            self.daily_meal_voucher_limit = None
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Compte bancaire"

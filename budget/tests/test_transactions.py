@@ -33,7 +33,7 @@ class TransactionAndTransferTestCase(TestCase):
         # Test d'une dépense avec un commentaire personnalisé
         expense_tx = Transaction.objects.create(
             total_amount=Decimal("45.50"),
-            swile_amount=Decimal("15.00"),
+            meal_voucher_amount=Decimal("15.00"),
             label="Courses Leclerc",
             comment="Matelas trek Laurie",
             category=self.category,
@@ -43,7 +43,7 @@ class TransactionAndTransferTestCase(TestCase):
 
         self.assertEqual(expense_tx.transaction_type, TransactionType.EXPENSE)
         self.assertEqual(expense_tx.total_amount, Decimal("45.50"))
-        self.assertEqual(expense_tx.swile_amount, Decimal("15.00"))
+        self.assertEqual(expense_tx.meal_voucher_amount, Decimal("15.00"))
         self.assertEqual(expense_tx.label, "Courses Leclerc")
         self.assertEqual(expense_tx.comment, "Matelas trek Laurie")
         self.assertIsNotNone(expense_tx.transaction_date)
@@ -149,3 +149,82 @@ class TransactionAndTransferTestCase(TestCase):
         # 3. Même mois -> Date de référence
         current_budget_month = calculate_budget_month(ref_date, 2026, 9)
         self.assertEqual(current_budget_month, ref_date)
+
+    def test_get_remaining_meal_voucher_ceiling_per_account(self) -> None:
+        from budget.utils import get_remaining_meal_voucher_ceiling
+
+        # Création d'un compte Swile dédié pour le test
+        tr_account = BankAccount.objects.create(
+            name="Swile Principal",
+            account_type=AccountType.MEAL_VOUCHER,
+            owner=self.member,
+            daily_meal_voucher_limit=Decimal("25.00"),
+        )
+
+        eligible_cat = Category.objects.create(
+            name="Courses", is_income=False, is_meal_voucher_eligible=True
+        )
+        today = timezone.localdate()
+
+        # Le plafond initial sur ce compte est de 25.00€
+        self.assertEqual(
+            get_remaining_meal_voucher_ceiling(today, tr_account),
+            Decimal("25.00"),
+        )
+
+        # Si on passe un compte courant classique, la fonction retourne None
+        self.assertIsNone(get_remaining_meal_voucher_ceiling(today, self.bank_account))
+
+        # Achat de 10.00€ payé via ce compte TR
+        Transaction.objects.create(
+            total_amount=Decimal("30.00"),
+            meal_voucher_amount=Decimal("10.00"),
+            category=eligible_cat,
+            bank_account=tr_account,
+            transaction_date=today,
+            transaction_type=TransactionType.EXPENSE,
+        )
+
+        # Il reste 15.00€ sur ce compte TR
+        self.assertEqual(
+            get_remaining_meal_voucher_ceiling(today, tr_account),
+            Decimal("15.00"),
+        )
+
+    def test_transaction_expense_with_meal_voucher_updates_balances(self) -> None:
+        tr_account = BankAccount.objects.create(
+            name="Swile Principal",
+            account_type=AccountType.MEAL_VOUCHER,
+            owner=self.member,
+            current_balance=Decimal("100.00"),
+        )
+        initial_checking_balance = self.bank_account.current_balance
+        initial_tr_balance = tr_account.current_balance
+
+        eligible_cat = Category.objects.create(
+            name="Courses", is_income=False, is_meal_voucher_eligible=True
+        )
+
+        Transaction.objects.create(
+            total_amount=Decimal("50.00"),
+            meal_voucher_amount=Decimal("20.00"),
+            meal_voucher_bank_account=tr_account,
+            label="Supermarché",
+            category=eligible_cat,
+            bank_account=self.bank_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+
+        self.bank_account.refresh_from_db()
+        tr_account.refresh_from_db()
+
+        # Compte courant débité de total - meal_voucher (50 - 20 = 30)
+        self.assertEqual(
+            self.bank_account.current_balance,
+            initial_checking_balance - Decimal("30.00"),
+        )
+        # Compte TR débité du montant TR (20)
+        self.assertEqual(
+            tr_account.current_balance,
+            initial_tr_balance - Decimal("20.00"),
+        )

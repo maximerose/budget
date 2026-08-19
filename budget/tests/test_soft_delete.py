@@ -1,5 +1,7 @@
 from decimal import Decimal
+
 from django.test import TestCase
+
 from budget.models import AccountType, BankAccount, HouseholdMember
 
 
