@@ -30,11 +30,12 @@ class TransactionAndTransferTestCase(TestCase):
         )
 
     def test_transaction_creation_and_defaults(self) -> None:
-        # Test d'une dépense
+        # Test d'une dépense avec un commentaire personnalisé
         expense_tx = Transaction.objects.create(
             total_amount=Decimal("45.50"),
             swile_amount=Decimal("15.00"),
             label="Courses Leclerc",
+            comment="Matelas trek Laurie",
             category=self.category,
             bank_account=self.bank_account,
             transaction_type=TransactionType.EXPENSE,
@@ -44,12 +45,13 @@ class TransactionAndTransferTestCase(TestCase):
         self.assertEqual(expense_tx.total_amount, Decimal("45.50"))
         self.assertEqual(expense_tx.swile_amount, Decimal("15.00"))
         self.assertEqual(expense_tx.label, "Courses Leclerc")
+        self.assertEqual(expense_tx.comment, "Matelas trek Laurie")
         self.assertIsNotNone(expense_tx.transaction_date)
 
         expected_expense_str = f"[Dépense] {expense_tx.transaction_date} - Loyer: -45.50 € (Courses Leclerc)"
         self.assertEqual(str(expense_tx), expected_expense_str)
 
-        # Test d'un revenu
+        # Test d'un revenu (vérifie aussi que le commentaire est bien vide par défaut)
         income_tx = Transaction.objects.create(
             total_amount=Decimal("2500.00"),
             label="Salaire",
@@ -59,7 +61,10 @@ class TransactionAndTransferTestCase(TestCase):
         )
 
         self.assertEqual(income_tx.transaction_type, TransactionType.INCOME)
-        expected_income_str = f"[Revenu] {income_tx.transaction_date} - Loyer: +2500.00 € (Salaire)"
+        self.assertEqual(income_tx.comment, "")
+        expected_income_str = (
+            f"[Revenu] {income_tx.transaction_date} - Loyer: +2500.00 € (Salaire)"
+        )
         self.assertEqual(str(income_tx), expected_income_str)
 
     def test_transfer_creation_and_str(self) -> None:

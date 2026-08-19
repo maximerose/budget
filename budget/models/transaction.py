@@ -26,6 +26,7 @@ class Transaction(BaseModel):
         max_digits=15, decimal_places=2, default=Decimal("0.00")
     )
     label = models.CharField(max_length=100, blank=True, default="")
+    comment = models.CharField(max_length=255, blank=True, default="")
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, related_name="transactions"
     )
