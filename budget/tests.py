@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -16,6 +17,7 @@ from budget.models import (
     TransactionType,
     Transfer,
 )
+from budget.utils import calculate_budget_month
 
 
 class BudgetModelsTestCase(TestCase):
@@ -185,3 +187,42 @@ class BudgetModelsTestCase(TestCase):
 
         with self.assertRaises(ValidationError):
             transfer.full_clean()
+
+    def test_transaction_budget_month_default_and_custom(self) -> None:
+        # Test que par défaut, si aucun budget_month n'est précisé, c'est la date actuelle qui prime
+        tx_default = Transaction.objects.create(
+            total_amount=Decimal("20.00"),
+            label="Achat standard",
+            category=self.category,
+            bank_account=self.bank_account,
+        )
+        self.assertEqual(tx_default.budget_month, timezone.localdate())
+
+        # Test avec un mois précédent (ex : dernier jour du mois pour un salaire décalé)
+        last_day_prev_month = timezone.localdate().replace(day=1) - timedelta(days=1)
+        tx_custom = Transaction.objects.create(
+            total_amount=Decimal("2500.00"),
+            label="Salaire mois précédent",
+            category=self.category,
+            bank_account=self.bank_account,
+            transaction_date=timezone.localdate(),
+            budget_month=last_day_prev_month,
+        )
+        self.assertEqual(tx_custom.budget_month, last_day_prev_month)
+
+    def test_calculate_budget_month_logic(self) -> None:
+
+        # Date de référence : 4 septembre 2026
+        ref_date = datetime.date(2026, 9, 4)
+
+        # 1. Test mois antérieur (août 2026 -> Doit donner le dernier jour : 31 août)
+        past_budget_month = calculate_budget_month(ref_date, 2026, 8)
+        self.assertEqual(past_budget_month, datetime.date(2026, 8, 31))
+
+        # 2. Test mois postérieur (octobre 2026 -> Doit donner le premier jour : 1er octobre)
+        next_budget_month = calculate_budget_month(ref_date, 2026, 10)
+        self.assertEqual(next_budget_month, datetime.date(2026, 10, 1))
+
+        # 3. Même mois (septembre 2026 -> Doit conserver la date de référence)
+        current_budget_month = calculate_budget_month(ref_date, 2026, 9)
+        self.assertEqual(current_budget_month, ref_date)

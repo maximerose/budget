@@ -136,6 +136,7 @@ class Transaction(BaseModel):
     transaction_type = models.CharField(
         max_length=20, choices=TransactionType.choices, default=TransactionType.EXPENSE
     )
+    budget_month = models.DateField(default=timezone.localdate)
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)
     swile_amount = models.DecimalField(
         max_digits=15, decimal_places=2, default=Decimal("0.00")
