@@ -1,7 +1,9 @@
 from decimal import Decimal
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from core.models import BaseModel, SoftDeleteModel
 
@@ -65,3 +67,26 @@ class BankAccount(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Compte bancaire"
         verbose_name_plural = "Comptes bancaires"
+
+
+class AccountSnapshot(BaseModel):
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name="snapshots",
+    )
+    balance = models.DecimalField(max_digits=15, decimal_places=2)
+    date = models.DateField(default=timezone.localdate)
+
+    def __str__(self) -> str:
+        return f"{self.bank_account.name} - {self.balance} € au {self.date}"
+
+    class Meta(BaseModel.Meta):
+        verbose_name = "Relevé de compte (Snapshot)"
+        verbose_name_plural = "Relevés de comptes (Snapshots)"
+        ordering: ClassVar[list[str]] = ["-date"]
+        constraints: ClassVar[list[models.UniqueConstraint]] = [
+            models.UniqueConstraint(
+                fields=["bank_account", "date"], name="unique_daily_account_snapshot"
+            )
+        ]
