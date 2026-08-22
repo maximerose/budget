@@ -1,47 +1,73 @@
 import datetime
 from decimal import Decimal
 
+from django.db.models import Sum
+from django.utils import timezone
+
 from budget.models import (
     AccountType,
     BankAccount,
     HouseholdMember,
     MonthlyForecastShare,
     RecurringExpenseShare,
+    Transaction,
+    TransactionType,
 )
 
 
 def calculate_monthly_projected_balances(
     member: HouseholdMember, month: datetime.date
 ) -> dict[str, dict[str, Decimal]]:
-    """
-    Calcule la cascade complète des soldes projetés par étape :
-    - 'initial' : Solde actuel réel.
-    - 'after_fixed' : Solde après déduction des charges fixes.
-    - 'after_variables' : Solde après déduction des charges variables (avec déduction TR).
-    - 'after_savings' : Solde après transfert vers les comptes d'épargne.
-    - 'after_incomes' : Solde final après encaissement des revenus de fin de mois.
-    """
     accounts = BankAccount.objects.filter(owner=member, is_active=True)
+    today = timezone.localdate().replace(day=1)
+    target_month = month.replace(day=1)
 
-    # 1. Solde Initial
     initial = {acc.id: acc.current_balance for acc in accounts}
 
-    # 2. ÉTAPE 1 : Après Charges Fixes
+    # 1. MOIS PASSÉ (M < actuel) : Clôturé, le solde réel en BDD fait foi.
+    if target_month < today:
+        return {
+            "initial": initial,
+            "after_fixed": initial.copy(),
+            "after_variables": initial.copy(),
+            "after_savings": initial.copy(),
+            "after_incomes": initial.copy(),
+        }
+
+    # 2. MOIS EN COURS OU FUTUR (M >= actuel)
+    # 2.1 ÉTAPE 1 : Charges Fixes
     after_fixed = initial.copy()
     recurring_shares = RecurringExpenseShare.objects.filter(
         bank_account__in=accounts,
         recurring_expense__is_active=True,
         recurring_expense__is_variable=False,
         is_active=True,
-    )
-    for share in recurring_shares:
-        after_fixed[share.bank_account_id] -= share.amount
+    ).select_related("recurring_expense")
 
-    # 3. ÉTAPE 2 : Après Charges Variables (Exclut revenus et épargne)
+    for share in recurring_shares:
+        # 1. Cherche si des transactions réelles existent pour cette catégorie sur ce mois
+        real_transactions = Transaction.objects.filter(
+            bank_account_id=share.bank_account_id,
+            category_id=share.recurring_expense.category_id,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            transaction_type=TransactionType.EXPENSE,
+        )
+
+        if real_transactions.exists():
+            # Si déjà prélevé : la transaction a DÉJÀ été débitée de current_balance en BDD.
+            # On ne déduit donc rien de plus du solde actuel !
+            continue
+        else:
+            # Si pas encore prélevé : on déduit le montant prévisionnel théorique
+            after_fixed[share.bank_account_id] -= share.amount
+
+    # 2.2 ÉTAPE 2 : Charges Variables
     after_variables = after_fixed.copy()
     forecast_shares = MonthlyForecastShare.objects.filter(
         forecast__member=member,
-        forecast__month=month,
+        forecast__month__year=target_month.year,
+        forecast__month__month=target_month.month,
         forecast__is_active=True,
         is_active=True,
     ).select_related("forecast__category", "bank_account")
@@ -52,12 +78,29 @@ def calculate_monthly_projected_balances(
 
     for share in forecast_shares:
         category = share.forecast.category
-        amount = share.amount
         target_account = share.bank_account
 
-        # Ne traite que les dépenses variables classiques (ni revenus, ni comptes épargne)
-        if category.is_income or target_account.account_type == AccountType.SAVINGS:
+        is_savings = (
+            target_account.account_type == AccountType.SAVINGS
+            or category.default_bank_account_id
+            and BankAccount.objects.filter(
+                id=category.default_bank_account_id,
+                account_type=AccountType.SAVINGS,
+            ).exists()
+        )
+
+        if category.is_income or is_savings:
             continue
+
+        realized = Transaction.objects.filter(
+            bank_account_id=share.bank_account_id,
+            category_id=category.id,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            transaction_type=TransactionType.EXPENSE,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+        amount = max(Decimal("0.00"), share.amount - realized)
 
         if category.is_meal_voucher_eligible and tr_accounts:
             for tr_acc in tr_accounts:
@@ -72,28 +115,40 @@ def calculate_monthly_projected_balances(
         if amount > Decimal("0.00"):
             after_variables[target_account.id] -= amount
 
-    # 4. ÉTAPE 3 : Après Épargne (Prélèvements sur compte courant vers comptes épargne)
+    # 2.3 ÉTAPE 3 : Épargne
     after_savings = after_variables.copy()
-    savings_shares = forecast_shares.filter(
-        bank_account__account_type=AccountType.SAVINGS
-    )
+    for share in forecast_shares:
+        category = share.forecast.category
+        target_account = share.bank_account
 
-    for share in savings_shares:
-        # Débite le compte courant par défaut (ou fallback) et crédite le compte d'épargne
-        source_account_id = (
-            share.bank_account.fallback_account_id
-            or share.forecast.category.default_bank_account_id
+        is_savings = (
+            target_account.account_type == AccountType.SAVINGS
+            or category.default_bank_account_id
+            and BankAccount.objects.filter(
+                id=category.default_bank_account_id,
+                account_type=AccountType.SAVINGS,
+            ).exists()
         )
-        if source_account_id and source_account_id in after_savings:
-            after_savings[source_account_id] -= share.amount
-        after_savings[share.bank_account_id] += share.amount
 
-    # 5. ÉTAPE 4 : Après Revenus (Crédit des catégories de type revenu)
+        if is_savings and not category.is_income:
+            after_savings[share.bank_account_id] -= share.amount
+            if category.default_bank_account_id:
+                after_savings[category.default_bank_account_id] += share.amount
+
+    # 2.4 ÉTAPE 4 : Revenus
     after_incomes = after_savings.copy()
     income_shares = forecast_shares.filter(forecast__category__is_income=True)
 
     for share in income_shares:
-        after_incomes[share.bank_account_id] += share.amount
+        realized = Transaction.objects.filter(
+            bank_account_id=share.bank_account_id,
+            category_id=share.forecast.category_id,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            transaction_type=TransactionType.INCOME,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+        remaining_to_receive = max(Decimal("0.00"), share.amount - realized)
+        after_incomes[share.bank_account_id] += remaining_to_receive
 
     return {
         "initial": initial,

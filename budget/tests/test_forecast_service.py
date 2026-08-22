@@ -1,119 +1,203 @@
-import datetime
+from datetime import timedelta
 from decimal import Decimal
+
+from django.test import TestCase
+from django.utils import timezone
 
 from budget.models import (
     AccountType,
     BankAccount,
+    Category,
     HouseholdMember,
+    MonthlyForecast,
     MonthlyForecastShare,
+    RecurringExpense,
     RecurringExpenseShare,
+    Transaction,
+    TransactionType,
 )
+from budget.services.forecast import calculate_monthly_projected_balances
 
 
-def calculate_monthly_projected_balances(
-    member: HouseholdMember, month: datetime.date
-) -> dict[str, dict[str, Decimal]]:
-    """
-    Calcule la cascade complète des soldes projetés par étape :
-    - 'initial' : Solde actuel réel.
-    - 'after_fixed' : Solde après déduction des charges fixes.
-    - 'after_variables' : Solde après déduction des charges variables (avec déduction TR).
-    - 'after_savings' : Solde après transfert vers les comptes d'épargne.
-    - 'after_incomes' : Solde final après encaissement des revenus de fin de mois.
-    """
-    accounts = BankAccount.objects.filter(owner=member, is_active=True)
+class ForecastServiceTestCase(TestCase):
+    def setUp(self) -> None:
+        self.member = HouseholdMember.objects.create(name="Maxime")
+        self.today = timezone.localdate().replace(day=1)
 
-    # 1. Solde Initial
-    initial = {acc.id: acc.current_balance for acc in accounts}
-
-    # 2. ÉTAPE 1 : Après Charges Fixes
-    after_fixed = initial.copy()
-    recurring_shares = RecurringExpenseShare.objects.filter(
-        bank_account__in=accounts,
-        recurring_expense__is_active=True,
-        recurring_expense__is_variable=False,
-        is_active=True,
-    )
-    for share in recurring_shares:
-        after_fixed[share.bank_account_id] -= share.amount
-
-    # 3. ÉTAPE 2 : Après Charges Variables (Exclut revenus et épargne)
-    after_variables = after_fixed.copy()
-    forecast_shares = MonthlyForecastShare.objects.filter(
-        forecast__member=member,
-        forecast__month=month,
-        forecast__is_active=True,
-        is_active=True,
-    ).select_related("forecast__category", "bank_account")
-
-    tr_accounts = [
-        acc for acc in accounts if acc.account_type == AccountType.MEAL_VOUCHER
-    ]
-
-    for share in forecast_shares:
-        category = share.forecast.category
-        amount = share.amount
-        target_account = share.bank_account
-
-        # Exclut les revenus et les catégories/comptes d'épargne des dépenses variables
-        is_savings = (
-            target_account.account_type == AccountType.SAVINGS
-            or category.default_bank_account_id
-            and BankAccount.objects.filter(
-                id=category.default_bank_account_id,
-                account_type=AccountType.SAVINGS,
-            ).exists()
+        self.checking_account = BankAccount.objects.create(
+            name="Compte courant",
+            account_type=AccountType.CHECKING,
+            owner=self.member,
+            current_balance=Decimal("1500.00"),
+            is_default=True,
+        )
+        self.savings_account = BankAccount.objects.create(
+            name="Livret A",
+            account_type=AccountType.SAVINGS,
+            owner=self.member,
+            current_balance=Decimal("5000.00"),
+        )
+        self.tr_account = BankAccount.objects.create(
+            name="Swile",
+            account_type=AccountType.MEAL_VOUCHER,
+            owner=self.member,
+            current_balance=Decimal("100.00"),
+            fallback_account=self.checking_account,
         )
 
-        if category.is_income or is_savings:
-            continue
-
-        if category.is_meal_voucher_eligible and tr_accounts:
-            for tr_acc in tr_accounts:
-                available_tr = after_variables.get(tr_acc.id, Decimal("0.00"))
-                if available_tr > Decimal("0.00"):
-                    tr_deduction = min(amount, available_tr)
-                    after_variables[tr_acc.id] -= tr_deduction
-                    amount -= tr_deduction
-                    if amount == Decimal("0.00"):
-                        break
-
-        if amount > Decimal("0.00"):
-            after_variables[target_account.id] -= amount
-
-    # 4. ÉTAPE 3 : Après Épargne (Débit compte source / Crédit compte épargne)
-    after_savings = after_variables.copy()
-    for share in forecast_shares:
-        category = share.forecast.category
-        target_account = share.bank_account
-
-        is_savings = (
-            target_account.account_type == AccountType.SAVINGS
-            or category.default_bank_account_id
-            and BankAccount.objects.filter(
-                id=category.default_bank_account_id,
-                account_type=AccountType.SAVINGS,
-            ).exists()
+        self.cat_housing = Category.objects.create(
+            name="Logement", default_bank_account=self.checking_account
+        )
+        self.cat_groceries = Category.objects.create(
+            name="Courses",
+            is_meal_voucher_eligible=True,
+            default_bank_account=self.checking_account,
+        )
+        self.cat_salary = Category.objects.create(
+            name="Salaire",
+            is_income=True,
+            default_bank_account=self.checking_account,
+        )
+        self.cat_savings = Category.objects.create(
+            name="Épargne projet",
+            default_bank_account=self.savings_account,
         )
 
-        if is_savings and not category.is_income:
-            # Débite le compte source (compte associé au share)
-            after_savings[share.bank_account_id] -= share.amount
-            # Crédite le compte d'épargne (default_bank_account de la catégorie)
-            if category.default_bank_account_id:
-                after_savings[category.default_bank_account_id] += share.amount
+    def test_calculate_monthly_projected_balances_complete_cascade(self) -> None:
+        # 1. Charge fixe : Loyer 600€
+        rent = RecurringExpense.objects.create(
+            label="Loyer",
+            total_amount=Decimal("600.00"),
+            category=self.cat_housing,
+        )
+        RecurringExpenseShare.objects.create(
+            recurring_expense=rent,
+            bank_account=self.checking_account,
+            amount=Decimal("600.00"),
+        )
 
-    # 5. ÉTAPE 4 : Après Revenus
-    after_incomes = after_savings.copy()
-    income_shares = forecast_shares.filter(forecast__category__is_income=True)
+        # 2. Charge variable : Courses 300€ (TR)
+        forecast_groceries = MonthlyForecast.objects.create(
+            month=self.today,
+            category=self.cat_groceries,
+            member=self.member,
+            total_amount=Decimal("300.00"),
+        )
+        MonthlyForecastShare.objects.create(
+            forecast=forecast_groceries,
+            bank_account=self.checking_account,
+            amount=Decimal("300.00"),
+        )
 
-    for share in income_shares:
-        after_incomes[share.bank_account_id] += share.amount
+        # 3. Prévision Épargne : Virement 200€ vers Livret A
+        forecast_savings = MonthlyForecast.objects.create(
+            month=self.today,
+            category=self.cat_savings,
+            member=self.member,
+            total_amount=Decimal("200.00"),
+        )
+        MonthlyForecastShare.objects.create(
+            forecast=forecast_savings,
+            bank_account=self.checking_account,
+            amount=Decimal("200.00"),
+        )
 
-    return {
-        "initial": initial,
-        "after_fixed": after_fixed,
-        "after_variables": after_variables,
-        "after_savings": after_savings,
-        "after_incomes": after_incomes,
-    }
+        # 4. Prévision Revenu : Salaire 2500€
+        forecast_salary = MonthlyForecast.objects.create(
+            month=self.today,
+            category=self.cat_salary,
+            member=self.member,
+            total_amount=Decimal("2500.00"),
+        )
+        MonthlyForecastShare.objects.create(
+            forecast=forecast_salary,
+            bank_account=self.checking_account,
+            amount=Decimal("2500.00"),
+        )
+
+        steps = calculate_monthly_projected_balances(
+            member=self.member, month=self.today
+        )
+
+        self.assertEqual(steps["initial"][self.checking_account.id], Decimal("1500.00"))
+        self.assertEqual(
+            steps["after_fixed"][self.checking_account.id], Decimal("900.00")
+        )
+        self.assertEqual(
+            steps["after_variables"][self.checking_account.id], Decimal("700.00")
+        )
+        self.assertEqual(
+            steps["after_savings"][self.checking_account.id], Decimal("500.00")
+        )
+        self.assertEqual(
+            steps["after_savings"][self.savings_account.id], Decimal("5200.00")
+        )
+        self.assertEqual(
+            steps["after_incomes"][self.checking_account.id], Decimal("3000.00")
+        )
+
+    def test_calculate_monthly_projected_balances_temporal_logic(self) -> None:
+        current_month = self.today
+        past_month = (current_month - timedelta(days=1)).replace(day=1)
+        future_month = (current_month.replace(day=28) + timedelta(days=5)).replace(
+            day=1
+        )
+
+        # Charge fixe : Loyer prévu à 600€
+        rent = RecurringExpense.objects.create(
+            label="Loyer",
+            total_amount=Decimal("600.00"),
+            category=self.cat_housing,
+        )
+        RecurringExpenseShare.objects.create(
+            recurring_expense=rent,
+            bank_account=self.checking_account,
+            amount=Decimal("600.00"),
+        )
+
+        # 1. MOIS PASSÉ : Loyer réellement payé 580€ en juillet
+        # Transaction créée -> current_balance BDD passe de 1500€ à 920€ (1500 - 580).
+        Transaction.objects.create(
+            transaction_date=past_month,
+            budget_month=past_month,
+            total_amount=Decimal("580.00"),
+            category=self.cat_housing,
+            bank_account=self.checking_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+        # Comme la transaction existe sur past_month, le réel a déjà impacté la banque.
+        # after_fixed reste 920€ (pas de ré-imputation des 600€ théoriques).
+        past_steps = calculate_monthly_projected_balances(
+            member=self.member, month=past_month
+        )
+        self.assertEqual(
+            past_steps["after_fixed"][self.checking_account.id], Decimal("920.00")
+        )
+
+        # 2. MOIS FUTUR : Aucune transaction sur septembre.
+        # on déduit la prévision théorique (600€) du solde actuel (920€).
+        # after_fixed = 920 - 600 = 320€
+        future_steps = calculate_monthly_projected_balances(
+            member=self.member, month=future_month
+        )
+        self.assertEqual(
+            future_steps["after_fixed"][self.checking_account.id], Decimal("320.00")
+        )
+
+        # 3. MOIS EN COURS : Le loyer de 600€ est prélevé en août.
+        # Solde BDD passe à 320€ (920 - 600).
+        # La transaction existant pour août, after_fixed reste à 320€.
+        Transaction.objects.create(
+            transaction_date=current_month,
+            budget_month=current_month,
+            total_amount=Decimal("600.00"),
+            category=self.cat_housing,
+            bank_account=self.checking_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+        current_steps = calculate_monthly_projected_balances(
+            member=self.member, month=current_month
+        )
+        self.assertEqual(
+            current_steps["after_fixed"][self.checking_account.id], Decimal("320.00")
+        )
