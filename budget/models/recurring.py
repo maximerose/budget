@@ -48,7 +48,7 @@ class RecurringExpenseShare(BaseModel, SoftDeleteModel):
 
     def clean(self) -> None:
         super().clean()
-        if not self.recurring_expense.id:
+        if not self.recurring_expense_id:
             return
 
         existing_shares_sum = RecurringExpenseShare.objects.filter(

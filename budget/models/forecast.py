@@ -58,7 +58,7 @@ class MonthlyForecastShare(BaseModel, SoftDeleteModel):
 
     def clean(self) -> None:
         super().clean()
-        if not self.forecast.id:
+        if not self.forecast_id:
             return
 
         existing_shares_sum = MonthlyForecastShare.objects.filter(

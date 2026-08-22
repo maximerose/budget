@@ -116,8 +116,8 @@ class Transfer(BaseModel):
         super().clean()
 
         if (
-            self.source_account.id
-            and self.source_account.id == self.destination_account.id
+            self.source_account_id
+            and self.source_account_id == self.destination_account_id
         ):
             raise ValidationError(
                 "Le compte source et le compte destination doivent être différents."
