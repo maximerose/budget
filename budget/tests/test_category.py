@@ -4,12 +4,25 @@ from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.test import TestCase
 
-from budget.models import Category, RecurringExpense
+from budget.models import (
+    AccountType,
+    BankAccount,
+    Category,
+    HouseholdMember,
+    RecurringExpense,
+)
 
 
 class CategoryModelsTestCase(TestCase):
     def setUp(self) -> None:
         self.category = Category.objects.create(name="Loyer")
+        self.member = HouseholdMember.objects.create(name="Maxime")
+        self.bank_account = BankAccount.objects.create(
+            name="Compte joint",
+            account_type=AccountType.CHECKING,
+            owner=self.member,
+            current_balance=Decimal("2000.00"),
+        )
 
     def test_category_str(self) -> None:
         self.assertEqual(str(self.category), "Loyer")
@@ -50,3 +63,11 @@ class CategoryModelsTestCase(TestCase):
         )
         with self.assertRaises(ValidationError):
             invalid_cat.full_clean()
+
+    def test_category_default_bank_account(self) -> None:
+        # Vérifie qu'une catégorie peut avoir un compte bancaire par défaut
+        category = Category.objects.create(
+            name="Courses",
+            default_bank_account=self.bank_account,
+        )
+        self.assertEqual(category.default_bank_account, self.bank_account)

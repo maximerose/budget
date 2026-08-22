@@ -3,6 +3,7 @@ from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
+from django.db.models import SET_NULL
 from django.utils import timezone
 
 from core.models import BaseModel, SoftDeleteModel
@@ -47,6 +48,14 @@ class BankAccount(BaseModel, SoftDeleteModel):
     daily_meal_voucher_limit = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True
     )
+    is_default = models.BooleanField(default=False)
+    fallback_account=models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fallback_for"
+    )
 
     def __str__(self) -> str:
         account_type_label = AccountType(self.account_type).label
@@ -90,3 +99,5 @@ class AccountSnapshot(BaseModel):
                 fields=["bank_account", "date"], name="unique_daily_account_snapshot"
             )
         ]
+
+
