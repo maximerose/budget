@@ -13,6 +13,7 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
+from budget.models.category import Category
 from budget.models.recurring import RecurringExpenseStatus
 
 
@@ -208,3 +209,32 @@ def get_recurring_expenses_with_status(
         )
 
     return results
+
+
+def create_transaction_from_recurring_expense(
+    share: RecurringExpenseShare,
+    amount: Decimal | None = None,
+    budget_month: datetime.date | None = None,
+    label: str | None = None,
+) -> Transaction:
+    """
+    Crée une Transaction réelle depuis une part de charge fixe.
+    Renseigne automatiquement la relation recurring_expense.
+    """
+    expense = share.recurring_expense
+    today = timezone.localdate()
+    month = budget_month.replace(day=1) if budget_month else today.replace(day=1)
+
+    transaction_amount = amount if amount is not None else share.amount
+    transaction_label = label or expense.label
+
+    return Transaction.objects.create(
+        bank_account=share.bank_account,
+        category=expense.category,
+        recurring_expense=expense,
+        total_amount=transaction_amount,
+        label=transaction_label,
+        transaction_date=today,
+        budget_month=month,
+        transaction_type=TransactionType.EXPENSE,
+    )

@@ -33,6 +33,13 @@ class Transaction(BaseModel):
     bank_account = models.ForeignKey(
         BankAccount, on_delete=models.CASCADE, related_name="transactions"
     )
+    recurring_expense = models.ForeignKey(
+        "budget.RecurringExpense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
     meal_voucher_bank_account = models.ForeignKey(
         BankAccount,
         on_delete=models.SET_NULL,
