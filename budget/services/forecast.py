@@ -13,6 +13,7 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
+from budget.models.recurring import RecurringExpenseStatus
 
 
 def calculate_monthly_projected_balances(
@@ -157,3 +158,53 @@ def calculate_monthly_projected_balances(
         "after_savings": after_savings,
         "after_incomes": after_incomes,
     }
+
+
+def get_recurring_expenses_with_status(
+    member: HouseholdMember, month: datetime.date
+) -> list[dict]:
+    """
+    Retourne la liste des charges fixes d'un membre avec leur montant réalisé
+    et leur statut (WAITING, PARTIAL, COMPLETED) pour un mois donné.
+    """
+    target_month = month.replace(day=1)
+
+    shares = RecurringExpenseShare.objects.filter(
+        bank_account__owner=member,
+        bank_account__is_active=True,
+        recurring_expense__is_active=True,
+        recurring_expense__is_variable=False,
+        is_active=True,
+    ).select_related("recurring_expense", "bank_account")
+
+    results = []
+    for share in shares:
+        # 1. On somme les transactions du moi sur cette catégorie
+        realized = Transaction.objects.filter(
+            bank_account_id=share.bank_account_id,
+            category_id=share.recurring_expense.category_id,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            transaction_type=TransactionType.EXPENSE,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+        # 2. On détermine le statut
+        if realized == Decimal("0.00"):
+            status = RecurringExpenseStatus.WAITING
+        elif realized < share.amount:
+            status = RecurringExpenseStatus.PARTIAL
+        else:
+            status = RecurringExpenseStatus.COMPLETED
+
+        # 3. On ajoute le dictionnaire à la liste
+        results.append(
+            {
+                "share": share,
+                "recurring_expense": share.recurring_expense,
+                "expected_amount": share.amount,
+                "realized_amount": realized,
+                "status": status,
+            }
+        )
+
+    return results

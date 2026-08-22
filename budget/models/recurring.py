@@ -9,6 +9,12 @@ from .account import BankAccount
 from .category import Category
 
 
+class RecurringExpenseStatus(models.TextChoices):
+    WAITING = "WAITING", "En attente"
+    PARTIAL = "PARTIAL", "Partiellement payé"
+    COMPLETED = "COMPLETED", "Soldé"
+
+
 class RecurringExpense(BaseModel, SoftDeleteModel):
     label = models.CharField(max_length=100)
     total_amount = models.DecimalField(max_digits=15, decimal_places=2)

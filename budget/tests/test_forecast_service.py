@@ -16,7 +16,11 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
-from budget.services.forecast import calculate_monthly_projected_balances
+from budget.models.recurring import RecurringExpenseStatus
+from budget.services.forecast import (
+    calculate_monthly_projected_balances,
+    get_recurring_expenses_with_status,
+)
 
 
 class ForecastServiceTestCase(TestCase):
@@ -201,3 +205,49 @@ class ForecastServiceTestCase(TestCase):
         self.assertEqual(
             current_steps["after_fixed"][self.checking_account.id], Decimal("320.00")
         )
+
+    def test_get_recurring_expenses_with_status(self) -> None:
+        rent = RecurringExpense.objects.create(
+            label="Loyer",
+            total_amount=Decimal("600.00"),
+            category=self.cat_housing,
+        )
+        RecurringExpenseShare.objects.create(
+            recurring_expense=rent,
+            bank_account=self.checking_account,
+            amount=Decimal("600.00"),
+        )
+
+        # 1. Statut initial : WAITING (0€ payé)
+        result = get_recurring_expenses_with_status(self.member, self.today)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["status"], RecurringExpenseStatus.WAITING)
+        self.assertEqual(result[0]["realized_amount"], Decimal("0.00"))
+
+        # 2. Statut après paiement partiel : PARTIAL (300€ payés)
+        Transaction.objects.create(
+            transaction_date=self.today,
+            budget_month=self.today,
+            total_amount=Decimal("300.00"),
+            category=self.cat_housing,
+            bank_account=self.checking_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+        result_partial = get_recurring_expenses_with_status(self.member, self.today)
+        self.assertEqual(result_partial[0]["status"], RecurringExpenseStatus.PARTIAL)
+        self.assertEqual(result_partial[0]["realized_amount"], Decimal("300.00"))
+
+        # 3. Statut après paiement complet : COMPLETED (600€ payés au total)
+        Transaction.objects.create(
+            transaction_date=self.today,
+            budget_month=self.today,
+            total_amount=Decimal("300.00"),
+            category=self.cat_housing,
+            bank_account=self.checking_account,
+            transaction_type=TransactionType.EXPENSE,
+        )
+        result_completed = get_recurring_expenses_with_status(self.member, self.today)
+        self.assertEqual(
+            result_completed[0]["status"], RecurringExpenseStatus.COMPLETED
+        )
+        self.assertEqual(result_completed[0]["realized_amount"], Decimal("600.00"))
