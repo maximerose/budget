@@ -16,22 +16,39 @@ class TransactionType(models.TextChoices):
 
 
 class Transaction(BaseModel):
-    transaction_date = models.DateField(default=timezone.localdate)
+    transaction_date = models.DateField(default=timezone.localdate, verbose_name="Date")
     transaction_type = models.CharField(
-        max_length=20, choices=TransactionType.choices, default=TransactionType.EXPENSE
+        max_length=20,
+        choices=TransactionType.choices,
+        default=TransactionType.EXPENSE,
+        verbose_name="Type",
     )
-    budget_month = models.DateField(default=timezone.localdate)
-    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    meal_voucher_amount = models.DecimalField(
-        max_digits=15, decimal_places=2, default=Decimal("0.00")
+    budget_month = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Mois associé",
+        help_text="A renseigner si une transaction habituelle pour un mois a été reçue sur un autre mois (ex : le salaire qui tombe sur le mois d'après, un abonnement qui doit tomber le 1er et qui tombe le 30 du mois précédent)",
     )
-    label = models.CharField(max_length=100, blank=True, default="")
-    comment = models.CharField(max_length=255, blank=True, default="")
+    total_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant"
+    )
+
+    label = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="Libellé"
+    )
+    comment = models.CharField(
+        max_length=255, blank=True, default="", verbose_name="Commentaire"
+    )
     category = models.ForeignKey(
-        Category, on_delete=models.PROTECT, related_name="transactions"
+        Category,
+        on_delete=models.PROTECT,
+        related_name="transactions",
+        verbose_name="Catégorie",
     )
     bank_account = models.ForeignKey(
-        BankAccount, on_delete=models.CASCADE, related_name="transactions"
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+        verbose_name="Compte associé",
     )
     recurring_expense = models.ForeignKey(
         "budget.RecurringExpense",
@@ -39,6 +56,7 @@ class Transaction(BaseModel):
         null=True,
         blank=True,
         related_name="transactions",
+        verbose_name="Charge fixe",
     )
     meal_voucher_bank_account = models.ForeignKey(
         BankAccount,
@@ -46,6 +64,13 @@ class Transaction(BaseModel):
         null=True,
         blank=True,
         related_name="meal_voucher_transactions",
+        verbose_name="Compte Tickets Resto associé",
+    )
+    meal_voucher_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Montant en Tickets Resto",
     )
 
     def __str__(self) -> str:
@@ -107,14 +132,18 @@ class Transfer(BaseModel):
         BankAccount,
         on_delete=models.PROTECT,
         related_name="transfers_sent",
+        verbose_name="Compte émetteur",
     )
     destination_account = models.ForeignKey(
         BankAccount,
         on_delete=models.PROTECT,
         related_name="transfers_received",
+        verbose_name="Compte récepteur",
     )
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
-    date = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant"
+    )
+    date = models.DateField(default=timezone.localdate, verbose_name="Date")
 
     def __str__(self) -> str:
         return f"Transfert de {self.amount} € ({self.source_account.name} -> {self.destination_account.name})"

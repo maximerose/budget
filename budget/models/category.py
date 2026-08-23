@@ -1,21 +1,31 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from budget.models.account import BankAccount
+from budget.models.account import BankAccount, HouseholdMember
 from core.models import BaseModel, SoftDeleteModel
 
 
 class Category(BaseModel, SoftDeleteModel):
-    name = models.CharField(max_length=100)
+    owner = models.ForeignKey(
+        HouseholdMember,
+        on_delete=models.CASCADE,
+        related_name="categories",
+        null=True,
+        verbose_name="Utilisateur associé",
+    )
+    name = models.CharField(max_length=100, verbose_name="Nom de la catégorie")
     default_bank_account = models.ForeignKey(
         BankAccount,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="default_for_categories",
+        verbose_name="Compte par défaut pour la catégorie",
     )
-    is_income = models.BooleanField(default=False)
-    is_meal_voucher_eligible = models.BooleanField(default=False)
+    is_income = models.BooleanField(default=False, verbose_name="Catégorie de revenu")
+    is_meal_voucher_eligible = models.BooleanField(
+        default=False, verbose_name="Éligible aux Tickets Resto"
+    )
 
     def __str__(self) -> str:
         return self.name

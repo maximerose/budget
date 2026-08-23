@@ -1,0 +1,19 @@
+{
+  "name": "budget",
+  "version": "1.0.0",
+  "description": "Cette application web permet de lister toutes ses dépenses et de faire des prévisionnels pour gérer au mieux son budget.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maximerose/budget.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/maximerose/budget/issues"
+  },
+  "homepage": "https://github.com/maximerose/budget#readme"
+}

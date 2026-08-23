@@ -16,13 +16,26 @@ class RecurringExpenseStatus(models.TextChoices):
 
 
 class RecurringExpense(BaseModel, SoftDeleteModel):
-    label = models.CharField(max_length=100)
-    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    usual_due_day = models.DateField(null=True, blank=True)
-    frequency_months = models.PositiveIntegerField(default=1)
-    is_variable = models.BooleanField(default=False)
+    label = models.CharField(max_length=100, verbose_name="Nom")
+    total_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant"
+    )
+    usual_due_day = models.DateField(
+        null=True, blank=True, verbose_name="Date de prélèvement"
+    )
+    frequency_months = models.PositiveIntegerField(
+        default=1, verbose_name="Fréquence (tous les X mois)"
+    )
+    is_variable = models.BooleanField(
+        default=False,
+        verbose_name="Variable",
+        help_text="Le montant peut-il varier d'un mois à l'autre ? (ex : Facture d'éléctricité)",
+    )
     category = models.ForeignKey(
-        Category, on_delete=models.PROTECT, related_name="recurring_expenses"
+        Category,
+        on_delete=models.PROTECT,
+        related_name="recurring_expenses",
+        verbose_name="Catégorie",
     )
 
     def __str__(self) -> str:
@@ -42,12 +55,20 @@ class RecurringExpense(BaseModel, SoftDeleteModel):
 
 class RecurringExpenseShare(BaseModel, SoftDeleteModel):
     recurring_expense = models.ForeignKey(
-        RecurringExpense, on_delete=models.CASCADE, related_name="shares"
+        RecurringExpense,
+        on_delete=models.CASCADE,
+        related_name="shares",
+        verbose_name="Charge fixe",
     )
     bank_account = models.ForeignKey(
-        BankAccount, on_delete=models.CASCADE, related_name="expense_shares"
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name="expense_shares",
+        verbose_name="Compte associé",
     )
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant"
+    )
 
     def __str__(self) -> str:
         return f"{self.recurring_expense.label} - {self.bank_account.name}: {self.amount} €"

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestion de Budget{% endblock %}</title>
+
+    <!-- Tailwind CSS (via CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="h-full flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center font-bold text-slate-950 shadow-lg shadow-emerald-500/20">
+                        €
+                    </div>
+                    <span class="font-bold text-lg text-slate-100 tracking-tight">Mon Budget</span>
+                </div>
+
+                <!-- Sélecteur de Mois -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold px-3 py-1 bg-slate-800 text-slate-300 rounded-full border border-slate-700">
+                        Août 2026
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Bottom Navigation Bar (Mobile First) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 z-30 px-6 py-2">
+        <div class="flex justify-around items-center relative">
+            <a href="{% url 'dashboard' %}" class="flex flex-col items-center text-emerald-400 gap-1">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 00-1 1m-6 0h6"/></svg>
+                <span class="text-[10px] font-medium">Dashboard</span>
+            </a>
+
+            <!-- Espace central réservé au Bouton Flottant (FAB) -->
+            <div class="w-12"></div>
+
+            <a href="#" class="flex flex-col items-center text-slate-400 gap-1 hover:text-slate-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+                <span class="text-[10px] font-medium">Fixes</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Bouton Flottant Ajout Rapide (FAB - Positionné parfaitement au pouce) -->
+    <button 
+        hx-get="{% url 'quick_expense_form' %}"
+        hx-target="#modal-container"
+        hx-swap="innerHTML"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6"/>
+        </svg>
+    </button>
+
+    <!-- Conteneur Réutilisable pour Modales Popups -->
+    <div id="modal-container"></div>
+
+</body>
+</html>

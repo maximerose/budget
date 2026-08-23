@@ -13,7 +13,6 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
-from budget.models.category import Category
 from budget.models.recurring import RecurringExpenseStatus
 
 

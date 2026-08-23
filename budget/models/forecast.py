@@ -12,14 +12,22 @@ from .category import Category
 
 
 class MonthlyForecast(BaseModel, SoftDeleteModel):
-    month = models.DateField(default=timezone.localdate)
+    month = models.DateField(default=timezone.localdate, verbose_name="Mois")
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="forecasts"
+        Category,
+        on_delete=models.CASCADE,
+        related_name="forecasts",
+        verbose_name="Catégorie",
     )
     member = models.ForeignKey(
-        HouseholdMember, on_delete=models.CASCADE, related_name="forecasts"
+        HouseholdMember,
+        on_delete=models.CASCADE,
+        related_name="forecasts",
+        verbose_name="Utilisateur associé",
     )
-    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    total_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant de la prévision"
+    )
 
     def __str__(self) -> str:
         return f"{self.member.name} - {self.category.name} ({self.month.strftime('%m/%Y')}): {self.total_amount} €"
@@ -44,12 +52,20 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
 
 class MonthlyForecastShare(BaseModel, SoftDeleteModel):
     forecast = models.ForeignKey(
-        MonthlyForecast, on_delete=models.CASCADE, related_name="shares"
+        MonthlyForecast,
+        on_delete=models.CASCADE,
+        related_name="shares",
+        verbose_name="Prévision",
     )
     bank_account = models.ForeignKey(
-        BankAccount, on_delete=models.CASCADE, related_name="forecast_shares"
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name="forecast_shares",
+        verbose_name="Compte associé",
     )
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    amount = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name="Montant"
+    )
 
     def __str__(self) -> str:
         return (

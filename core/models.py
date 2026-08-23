@@ -14,6 +14,7 @@ class BaseModel(models.Model):
         null=True,
         blank=True,
         related_name="%(class)s_created",
+        verbose_name="Créé par",
     )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -21,6 +22,7 @@ class BaseModel(models.Model):
         null=True,
         blank=True,
         related_name="%(class)s_updated",
+        verbose_name="Modifié par",
     )
 
     class Meta:
@@ -28,7 +30,7 @@ class BaseModel(models.Model):
 
 
 class SoftDeleteModel(models.Model):
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
 
     class Meta:
         abstract = True

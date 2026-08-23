@@ -18,6 +18,9 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
         related_name="%(class)s_user",
     )
 
+    def __str__(self) -> str:
+        return f"{self.name} (@{self.user.username})"
+
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Membre du foyer"
         verbose_name_plural = "Membres du foyer"
@@ -32,33 +35,47 @@ class AccountType(models.TextChoices):
 
 
 class BankAccount(BaseModel, SoftDeleteModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, verbose_name="Nom du compte")
     account_type = models.CharField(
-        max_length=20, choices=AccountType.choices, default=AccountType.CHECKING
+        max_length=20,
+        choices=AccountType.choices,
+        default=AccountType.CHECKING,
+        verbose_name="Type de compte",
     )
     owner = models.ForeignKey(
         HouseholdMember,
         on_delete=models.CASCADE,
         related_name="bank_accounts",
+        verbose_name="Propriétaire du compte",
     )
     current_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=Decimal("0.0")
+        max_digits=15,
+        decimal_places=2,
+        default=Decimal("0.0"),
+        verbose_name="Solde actuel",
     )
     daily_meal_voucher_limit = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Limite quotidienne de tickets resto",
+        help_text="Si c'est un compte Tickets Resto, renseignez la limite quotidienne (ex : 25€)",
     )
-    is_default = models.BooleanField(default=False)
+    is_default = models.BooleanField(default=False, verbose_name="Compte par défaut")
     fallback_account = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="fallback_for",
+        verbose_name="Compte de transition",
+        help_text="Si ce compte est un compte Tickets Resto, alors vous pouvez renseigner un autre compte qui fait la bascule lors d'un paiement d'un montant supérieur à la limite quotidienne",
     )
 
     def __str__(self) -> str:
         account_type_label = AccountType(self.account_type).label
-        return f"{self.name} ({account_type_label})"
+        return f"{self.name} ({account_type_label}) (@{self.owner.user.username})"
 
     def clean(self) -> None:
         super().clean()
@@ -82,9 +99,10 @@ class AccountSnapshot(BaseModel):
         BankAccount,
         on_delete=models.CASCADE,
         related_name="snapshots",
+        verbose_name="Compte associé",
     )
-    balance = models.DecimalField(max_digits=15, decimal_places=2)
-    date = models.DateField(default=timezone.localdate)
+    balance = models.DecimalField(max_digits=15, decimal_places=2, verbose_name="Solde")
+    date = models.DateField(default=timezone.localdate, verbose_name="Date")
 
     def __str__(self) -> str:
         return f"{self.bank_account.name} - {self.balance} € au {self.date}"
