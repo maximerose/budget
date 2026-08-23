@@ -1,5 +1,4 @@
 from decimal import Decimal
-from urllib import response
 from urllib.request import Request
 
 from django.http import HttpResponse

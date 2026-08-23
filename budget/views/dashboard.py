@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from budget.models import BankAccount, HouseholdMember
-from budget.models.recurring import RecurringExpense, RecurringExpenseShare
+from budget.models.recurring import RecurringExpense
 from budget.services.forecast import (
     calculate_monthly_projected_balances,
     create_transaction_from_recurring_expense,
