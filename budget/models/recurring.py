@@ -33,13 +33,31 @@ class RecurringExpense(BaseModel, SoftDeleteModel):
     )
     category = models.ForeignKey(
         Category,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="recurring_expenses",
         verbose_name="Catégorie",
+    )
+    default_bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recurring_expenses",
+        verbose_name="Compte prélevé par défaut",
     )
 
     def __str__(self) -> str:
         return f"{self.label} ({self.total_amount} €)"
+
+    def get_target_bank_account(self) -> BankAccount | None:
+        """Résolution dynamique selon la priorité."""
+        if self.default_bank_account:
+            return self.default_bank_account
+        if self.category and self.category.default_bank_account:
+            return self.category.default_bank_account
+        return None
 
     def get_remaining_amount_to_split(self) -> Decimal:
         """Calcule le montant qu'il reste à assigner parmi les parts."""

@@ -1,19 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Dashboard | Mon Budget{% endblock %}
 {% block content %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <div class="space-y-6 mb-16 md:mb-0">
+    <!-- En-tête -->
     <div class="bg-brand-card border border-brand-border p-6 rounded-card shadow-sm">
-      <h1 class="text-xl font-bold text-slate-100">Bonjour {{ member.name|default:"à toi" }} 👋</h1>
-      <p class="text-xs text-slate-400 mt-0.5">Voici l'état de tes comptes en temps réel.</p>
+      {% include "budget/components/heading.html" with level="1" title="Bonjour "|add:member.name|default:"Bonjour à toi"|add:" 👋" subtitle="Voici la projection de tes comptes ce mois-ci." %}
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for account in accounts %}
-        {% include "budget/partials/_account_card.html" with account=account %}
-      {% empty %}
-        <div class="col-span-full bg-brand-card border border-brand-border p-6 rounded-card text-center text-slate-400 text-sm">
-          Aucun compte bancaire actif trouvé. Va les configurer dans l'administration !
-        </div>
-      {% endfor %}
-    </div>
+    <!-- 1. Cartes des comptes -->
+    {% include "budget/partials/accounts/_cards_list.html" %}
+    <!-- 2. Section Projections / Cascades -->
+    {% include "budget/partials/accounts/_cascade_projection.html" %}
+    <!-- 3. Synthèse des charges récurrentes -->
+    {% include "budget/partials/recurring/_summary_list.html" %}
   </div>
 {% endblock %}

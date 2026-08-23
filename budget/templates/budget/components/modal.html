@@ -1,20 +1,12 @@
 <div class="fixed inset-0 z-50 bg-brand-dark/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
     <div class="bg-brand-card border border-brand-border w-full sm:max-w-md rounded-t-3xl sm:rounded-modal p-6 shadow-2xl relative space-y-5">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-brand-border pb-3">
+        <div class="flex items-start justify-between border-b border-brand-border pb-3">
             <div>
-                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <span class="text-brand">{{ modal_icon|default:"⚡" }}</span>
-                    {{ modal_title|default:"Modal" }}
-                </h3>
-                {% if modal_subtitle %}
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        Compte : <span class="font-semibold text-slate-200">{{
-                            modal_subtitle }}</span>
-                    </p>
-                {% endif %}
+                {% include "budget/components/heading.html" with level="3" title=modal_title|default:"Modal" subtitle=modal_subtitle %}
             </div>
-            <button onclick="document.getElementById('modal-container').innerHTML = ''"
+            <button onclick="document.getElementById('modal-container').replaceChildren()"
+                    type="button"
                     class="text-slate-400 hover:text-slate-200 p-1 rounded-lg cursor-pointer">✕</button>
         </div>
         <!-- Corps -->
@@ -24,20 +16,29 @@
             <div class="flex items-center gap-3 pt-2">
                 {% if has_cancel %}
                     <div class="flex-1">
-                        {% include "budget/components/button.html" with label=cancel_text|default:"Annuler" variant="ghost"
-                            onclick="document.getElementById('modal-container').innerHTML = ''" %}
+                        <button type="button"
+                                onclick="document.getElementById('modal-container').replaceChildren()"
+                                class="w-full inline-flex items-center justify-center font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 text-sm cursor-pointer bg-transparent hover:bg-brand-border text-slate-300">
+                            {{ cancel_text|default:"Annuler" }}
+                        </button>
                     </div>
                 {% endif %}
                 {% if has_save %}
                     <div class="flex-1">
-                        {% include "budget/components/button.html" with type="submit" label=save_text|default:"Enregistrer"
-                            variant="primary" form=form_id %}
+                        <button type="submit"
+                                form="{{ form_id }}"
+                                class="w-full inline-flex items-center justify-center font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 text-sm cursor-pointer bg-action-primary hover:bg-action-primary-hover text-brand-dark shadow-lg shadow-emerald-500/20 font-bold">
+                            {{ save_text|default:"Enregistrer" }}
+                        </button>
                     </div>
                 {% endif %}
                 {% if has_ok %}
                     <div class="flex-1">
-                        {% include "budget/components/button.html" with label=ok_text|default:"OK" variant="primary"
-                            onclick="document.getElementById('modal-container').innerHTML = ''" %}
+                        <button type="button"
+                                onclick="document.getElementById('modal-container').replaceChildren()"
+                                class="w-full inline-flex items-center justify-center font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 text-sm cursor-pointer bg-action-primary hover:bg-action-primary-hover text-brand-dark shadow-lg shadow-emerald-500/20 font-bold">
+                            {{ ok_text|default:"OK" }}
+                        </button>
                     </div>
                 {% endif %}
             </div>

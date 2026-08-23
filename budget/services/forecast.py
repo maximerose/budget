@@ -13,7 +13,20 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
-from budget.models.recurring import RecurringExpenseStatus
+from budget.models.recurring import RecurringExpense, RecurringExpenseStatus
+
+
+def get_target_account_for_expense(
+    expense: RecurringExpense, member: HouseholdMember
+) -> BankAccount | None:
+    """Détermine le compte bancaire cible selon les priorités."""
+    if expense.default_bank_account:
+        return expense.default_bank_account
+    if expense.category and expense.category.default_bank_account:
+        return expense.category.default_bank_account
+    return BankAccount.objects.filter(
+        owner=member, is_default=True, is_active=True
+    ).first()
 
 
 def calculate_monthly_projected_balances(
@@ -25,7 +38,6 @@ def calculate_monthly_projected_balances(
 
     initial = {acc.id: acc.current_balance for acc in accounts}
 
-    # 1. MOIS PASSÉ (M < actuel) : Clôturé, le solde réel en BDD fait foi.
     if target_month < today:
         return {
             "initial": initial,
@@ -35,33 +47,43 @@ def calculate_monthly_projected_balances(
             "after_incomes": initial.copy(),
         }
 
-    # 2. MOIS EN COURS OU FUTUR (M >= actuel)
-    # 2.1 ÉTAPE 1 : Charges Fixes
+    # 2.1 ÉTAPE 1 : Charges Fixes (Gestion hybride : Shares ou Expense direct)
     after_fixed = initial.copy()
-    recurring_shares = RecurringExpenseShare.objects.filter(
-        bank_account__in=accounts,
-        recurring_expense__is_active=True,
-        recurring_expense__is_variable=False,
+    recurring_expenses = RecurringExpense.objects.filter(
         is_active=True,
-    ).select_related("recurring_expense")
+        is_variable=False,
+    ).select_related("category", "default_bank_account")
 
-    for share in recurring_shares:
-        # 1. Cherche si des transactions réelles existent pour cette catégorie sur ce mois
-        real_transactions = Transaction.objects.filter(
-            bank_account_id=share.bank_account_id,
-            category_id=share.recurring_expense.category_id,
-            budget_month__year=target_month.year,
-            budget_month__month=target_month.month,
-            transaction_type=TransactionType.EXPENSE,
-        )
+    for expense in recurring_expenses:
+        shares = expense.shares.filter(is_active=True)
 
-        if real_transactions.exists():
-            # Si déjà prélevé : la transaction a DÉJÀ été débitée de current_balance en BDD.
-            # On ne déduit donc rien de plus du solde actuel !
-            continue
+        if shares.exists():
+            # Cas 1 : Répartition explicite via des Shares
+            for share in shares:
+                if share.bank_account_id not in after_fixed:
+                    continue
+                real_transactions = Transaction.objects.filter(
+                    bank_account_id=share.bank_account_id,
+                    recurring_expense=expense,
+                    budget_month__year=target_month.year,
+                    budget_month__month=target_month.month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+                if not real_transactions.exists():
+                    after_fixed[share.bank_account_id] -= share.amount
         else:
-            # Si pas encore prélevé : on déduit le montant prévisionnel théorique
-            after_fixed[share.bank_account_id] -= share.amount
+            # Cas 2 : Pas de Share -> Compte cible déterminé automatiquement
+            target_account = get_target_account_for_expense(expense, member)
+            if target_account and target_account.id in after_fixed:
+                real_transactions = Transaction.objects.filter(
+                    bank_account_id=target_account.id,
+                    recurring_expense=expense,
+                    budget_month__year=target_month.year,
+                    budget_month__month=target_month.month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+                if not real_transactions.exists():
+                    after_fixed[target_account.id] -= expense.total_amount
 
     # 2.2 ÉTAPE 2 : Charges Variables
     after_variables = after_fixed.copy()
@@ -163,72 +185,96 @@ def calculate_monthly_projected_balances(
 def get_recurring_expenses_with_status(
     member: HouseholdMember, month: datetime.date
 ) -> list[dict]:
-    """
-    Retourne la liste des charges fixes d'un membre avec leur montant réalisé
-    et leur statut (WAITING, PARTIAL, COMPLETED) pour un mois donné.
-    """
     target_month = month.replace(day=1)
-
-    shares = RecurringExpenseShare.objects.filter(
-        bank_account__owner=member,
-        bank_account__is_active=True,
-        recurring_expense__is_active=True,
-        recurring_expense__is_variable=False,
+    expenses = RecurringExpense.objects.filter(
         is_active=True,
-    ).select_related("recurring_expense", "bank_account")
+        is_variable=False,
+    ).select_related("category", "default_bank_account")
 
     results = []
-    for share in shares:
-        # 1. On somme les transactions du moi sur cette catégorie
-        realized = Transaction.objects.filter(
-            bank_account_id=share.bank_account_id,
-            category_id=share.recurring_expense.category_id,
-            budget_month__year=target_month.year,
-            budget_month__month=target_month.month,
-            transaction_type=TransactionType.EXPENSE,
-        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+    for expense in expenses:
+        shares = expense.shares.filter(is_active=True)
 
-        # 2. On détermine le statut
-        if realized == Decimal("0.00"):
-            status = RecurringExpenseStatus.WAITING
-        elif realized < share.amount:
-            status = RecurringExpenseStatus.PARTIAL
+        if shares.exists():
+            for share in shares:
+                if share.bank_account.owner != member:
+                    continue
+                realized = Transaction.objects.filter(
+                    bank_account_id=share.bank_account_id,
+                    recurring_expense=expense,
+                    budget_month__year=target_month.year,
+                    budget_month__month=target_month.month,
+                    transaction_type=TransactionType.EXPENSE,
+                ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+                status = (
+                    RecurringExpenseStatus.WAITING
+                    if realized == Decimal("0.00")
+                    else (
+                        RecurringExpenseStatus.PARTIAL
+                        if realized < share.amount
+                        else RecurringExpenseStatus.COMPLETED
+                    )
+                )
+
+                results.append(
+                    {
+                        "expense": expense,
+                        "bank_account": share.bank_account,
+                        "expected_amount": share.amount,
+                        "realized_amount": realized,
+                        "status": status,
+                    }
+                )
         else:
-            status = RecurringExpenseStatus.COMPLETED
+            target_account = get_target_account_for_expense(expense, member)
+            if target_account and target_account.owner == member:
+                realized = Transaction.objects.filter(
+                    bank_account_id=target_account.id,
+                    recurring_expense=expense,
+                    budget_month__year=target_month.year,
+                    budget_month__month=target_month.month,
+                    transaction_type=TransactionType.EXPENSE,
+                ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
 
-        # 3. On ajoute le dictionnaire à la liste
-        results.append(
-            {
-                "share": share,
-                "recurring_expense": share.recurring_expense,
-                "expected_amount": share.amount,
-                "realized_amount": realized,
-                "status": status,
-            }
-        )
+                status = (
+                    RecurringExpenseStatus.WAITING
+                    if realized == Decimal("0.00")
+                    else (
+                        RecurringExpenseStatus.PARTIAL
+                        if realized < expense.total_amount
+                        else RecurringExpenseStatus.COMPLETED
+                    )
+                )
+
+                results.append(
+                    {
+                        "expense": expense,
+                        "bank_account": target_account,
+                        "expected_amount": expense.total_amount,
+                        "realized_amount": realized,
+                        "status": status,
+                    }
+                )
 
     return results
 
 
 def create_transaction_from_recurring_expense(
-    share: RecurringExpenseShare,
+    expense: RecurringExpense,
+    bank_account: BankAccount,
     amount: Decimal | None = None,
     budget_month: datetime.date | None = None,
     label: str | None = None,
 ) -> Transaction:
-    """
-    Crée une Transaction réelle depuis une part de charge fixe.
-    Renseigne automatiquement la relation recurring_expense.
-    """
-    expense = share.recurring_expense
     today = timezone.localdate()
     month = budget_month.replace(day=1) if budget_month else today.replace(day=1)
 
-    transaction_amount = amount if amount is not None else share.amount
+    transaction_amount = amount if amount is not None else expense.total_amount
     transaction_label = label or expense.label
 
     return Transaction.objects.create(
-        bank_account=share.bank_account,
+        bank_account=bank_account,
         category=expense.category,
         recurring_expense=expense,
         total_amount=transaction_amount,

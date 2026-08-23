@@ -19,11 +19,12 @@
   --color-action-warning: #f59e0b;
   --color-action-info: #3b82f6;
 
-  /* Variantes finances */
-  --color-finance-income: #10b981;
-  --color-finance-expense: #f43f5e;
-  --color-finance-warning: #f59e0b;
-  --color-finance-info: #3b82f6;
+  /* Couleurs sémantiques Budget & Flux */
+  --color-budget-initial: #3b82f6;
+  --color-budget-recurring: #f43f5e;
+  --color-budget-variable: #f59e0b;
+  --color-budget-savings: #8b5cf6;
+  --color-budget-income: #10b981;
 
   /* Rayons de bordure */
   --radius-card: 1rem;

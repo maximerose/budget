@@ -35,7 +35,7 @@ def adjust_account_balance_view(
 
     return render(
         request,
-        "budget/partials/_modal_adjust_balance.html",
+        "budget/partials/accounts/_modal_adjust_balance.html",
         {"account": account},
     )
 
@@ -74,7 +74,7 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
 
     return render(
         request,
-        "budget/partials/_modal_quick_expense.html",
+        "budget/partials/transactions/_modal_quick_expense.html",
         {
             "categories": categories,
             "accounts": accounts,

@@ -1,0 +1,7 @@
+<div class="space-y-6">
+  {% for item in accounts_data %}
+    {% include "budget/partials/accounts/_cascade_item.html" with account=item.account totals=item.totals %}
+  {% empty %}
+    {% include "budget/partials/shared/_empty_state.html" with message="Aucun compte bancaire actif. Configure-les dans l'admin !" %}
+  {% endfor %}
+</div>

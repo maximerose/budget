@@ -1,0 +1,9 @@
+<form hx-post="{% url 'pay_recurring_expense' expense.id %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      id="pay-recurring-form"
+      class="space-y-4">
+  {% csrf_token %}
+  {% include "budget/components/select.html" with label="Compte prélevé" name="account_id" options=accounts selected=account.id required=True %}
+  {% include "budget/components/input.html" with label="Montant réel prélevé (€)" type="number" name="amount" value=expense.total_amount step="0.01" required=True autofocus=True %}
+</form>

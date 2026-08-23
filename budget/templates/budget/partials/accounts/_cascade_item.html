@@ -1,0 +1,136 @@
+{% extends "budget/components/card.html" %}
+{% block card_body %}
+  <!-- En-tête avec Solde Estimé dynamique -->
+  <div class="flex items-center justify-between pb-2 border-b border-brand-border/60">
+    {% include "budget/components/heading.html" with level="3" title=account.name subtitle=account.get_account_type_display|default:"Compte" %}
+    <div class="text-right">
+      <span class="text-[10px] text-slate-400 block uppercase font-bold">Solde estimé</span>
+      {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-base font-extrabold" %}
+    </div>
+  </div>
+  <!-- Courbe de trajectoire -->
+  <div class="relative h-36 w-full my-2">
+    <canvas id="lineChart-{{ account.id }}"></canvas>
+  </div>
+  <!-- Grille de valeurs sous le graphique (KPIs) -->
+  <div class="grid grid-cols-5 gap-1 pt-2 border-t border-brand-border/60 text-center">
+    <div>
+      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Init.</span>
+      {% include "budget/components/amount.html" with amount=totals.initial custom_class="text-xs" %}
+    </div>
+    <div>
+      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Fixes</span>
+      {% include "budget/components/amount.html" with amount=totals.after_fixed custom_class="text-xs" %}
+    </div>
+    <div>
+      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Var.</span>
+      {% include "budget/components/amount.html" with amount=totals.after_variables custom_class="text-xs" %}
+    </div>
+    <div>
+      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Épargne</span>
+      {% include "budget/components/amount.html" with amount=totals.after_savings custom_class="text-xs" %}
+    </div>
+    <div>
+      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Fin</span>
+      {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-xs" %}
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const canvas = document.getElementById('lineChart-{{ account.id }}');
+      if (!canvas) return;
+
+      const initial = parseFloat("{{ totals.initial|default:0 }}");
+      const afterFixed = parseFloat("{{ totals.after_fixed|default:0 }}");
+      const afterVar = parseFloat("{{ totals.after_variables|default:0 }}");
+      const afterSavings = parseFloat("{{ totals.after_savings|default:0 }}");
+      const afterIncomes = parseFloat("{{ totals.after_incomes|default:0 }}");
+
+      // Couleur de la ligne et du fond selon que le solde final soit négatif ou positif
+      const isNegative = afterIncomes < 0;
+      const bgGradient = isNegative ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)';
+
+      // Helper couleur pour chaque point de passage
+      const getPointColor = (val) => val < 0 ? '#f43f5e' : '#10b981';
+
+      new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: ['Init.', 'Fixes', 'Var.', 'Épargne', 'Fin'],
+          datasets: [{
+            data: [initial, afterFixed, afterVar, afterSavings, afterIncomes],
+            borderColor: (context) => {
+              const chart = context.chart;
+              const { ctx, chartArea, scales } = chart;
+              if (!chartArea) return '#10b981';
+    
+              const zeroY = scales.y.getPixelForValue(0);
+              const topPixel = chartArea.top;
+              const bottomPixel = chartArea.bottom;
+    
+              // Si 0 est au-dessus du graphique (tout est négatif)
+              if (zeroY <= topPixel) return '#f43f5e';
+              // Si 0 est en dessous du graphique (tout est positif)
+              if (zeroY >= bottomPixel) return '#10b981';
+    
+              // Calcul de la position relative du 0 dans la zone de dessin
+              const zeroOffset = (zeroY - topPixel) / (bottomPixel - topPixel);
+    
+              const gradient = ctx.createLinearGradient(0, topPixel, 0, bottomPixel);
+              gradient.addColorStop(0, '#10b981');          // Vert au-dessus
+              gradient.addColorStop(zeroOffset, '#10b981');  // Vert jusqu'à la ligne 0
+              gradient.addColorStop(zeroOffset, '#f43f5e');  // Rouge à partir de la ligne 0
+              gradient.addColorStop(1, '#f43f5e');          // Rouge en dessous
+    
+              return gradient;
+            },
+            backgroundColor: bgGradient,
+            fill: {
+              target: 'origin',
+              above: 'rgba(16, 185, 129, 0.12)', // Vert translucide quand au-dessus de 0
+              below: 'rgba(244, 63, 94, 0.18)'    // Rouge translucide quand en-dessous de 0
+            },
+            tension: 0.35,
+            pointBackgroundColor: [
+              getPointColor(initial),
+              getPointColor(afterFixed),
+              getPointColor(afterVar),
+              getPointColor(afterSavings),
+              getPointColor(afterIncomes)
+            ],
+            pointBorderColor: '#0f172a',
+            pointBorderWidth: 2,
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              callbacks: {
+                label: (ctx) => ` Solde : ${ctx.raw} €`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#64748b', font: { size: 9 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: '#475569', font: { size: 8 } },
+              grid: {
+                color: (context) => (context.tick.value === 0 ? '#f43f5e' : '#1e293b'),
+                lineWidth: (context) => (context.tick.value === 0 ? 2 : 1)
+              },
+              beginAtZero: false
+            }
+          }
+        }
+      });
+    });
+  </script>
+{% endblock %}
