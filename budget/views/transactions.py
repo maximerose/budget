@@ -1,7 +1,9 @@
 from decimal import Decimal
+from urllib import response
+from urllib.request import Request
 
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from budget.models import (
@@ -13,7 +15,32 @@ from budget.models import (
 )
 
 
-def quick_expense_form_view(request):
+def adjust_account_balance_view(
+    request: Request, account_id: str
+) -> HttpResponse | None:
+    account = get_object_or_404(BankAccount, id=account_id)
+
+    if request.method == "POST":
+        new_balance = Decimal(request.POST.get("new_balance", "0.00"))
+
+        # On met à jou le solde du compte et la date
+        account.current_balance = new_balance
+        account.save()
+
+        # On ferme la modale et on rafraîchit la pagepour voir le nouveau solde
+        response = HttpResponse("")
+        response["HX-Refresh"] = "true"
+
+        return response
+
+    return render(
+        request,
+        "budget/partials/_modal_adjust_balance.html",
+        {"account": account},
+    )
+
+
+def quick_expense_form_view(request: Request) -> HttpResponse:
     # Pour l'instant, on récupère le premier membre actif (ou celui de la session)
     current_member = HouseholdMember.objects.filter(is_active=True).first()
 

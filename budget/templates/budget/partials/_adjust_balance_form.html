@@ -1,0 +1,8 @@
+<form hx-post="{% url 'adjust_account_balance' account.id %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      id="adjust-form"
+      class="space-y-4">
+  {% csrf_token %}
+  {% include "budget/components/input.html" with label="Nouveau solde théorique (€)" type="number" name="new_balance" value=account.current_balance step="0.01" required=True autofocus=True %}
+</form>

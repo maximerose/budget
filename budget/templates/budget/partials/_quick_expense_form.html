@@ -1,0 +1,23 @@
+<form hx-post="{% url 'quick_expense_form' %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      id="quick-expense-form"
+      class="space-y-4">
+    {% csrf_token %}
+    <!-- Champ Montant -->
+    {% include "budget/components/input.html" with label="Montant (€)" type="number" name="total_amount" step="0.01"
+        placeholder="0,00" required=True autofocus=True %}
+    <!-- Sélecteurs : Catégorie & Compte -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {% include "budget/components/select.html" with label="Catégorie" name="category" options=categories
+            required=True %}
+        {% include "budget/components/select.html" with label="Compte Débité" name="bank_account" options=accounts
+            required=True %}
+    </div>
+    <!-- Champ Date -->
+    {% include "budget/components/input.html" with label="Date de la transaction" type="date" name="transaction_date"
+        value=today|date:'Y-m-d' required=True %}
+    <!-- Champ Libellé -->
+    {% include "budget/components/input.html" with label="Libellé / Commentaire (optionnel)" name="label"
+        placeholder="Ex: Courses Leclerc, Matelas trek..." %}
+</form>

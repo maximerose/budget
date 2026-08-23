@@ -1,0 +1,46 @@
+<div class="fixed inset-0 z-50 bg-brand-dark/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+    <div class="bg-brand-card border border-brand-border w-full sm:max-w-md rounded-t-3xl sm:rounded-modal p-6 shadow-2xl relative space-y-5">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-brand-border pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <span class="text-brand">{{ modal_icon|default:"⚡" }}</span>
+                    {{ modal_title|default:"Modal" }}
+                </h3>
+                {% if modal_subtitle %}
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Compte : <span class="font-semibold text-slate-200">{{
+                            modal_subtitle }}</span>
+                    </p>
+                {% endif %}
+            </div>
+            <button onclick="document.getElementById('modal-container').innerHTML = ''"
+                    class="text-slate-400 hover:text-slate-200 p-1 rounded-lg cursor-pointer">✕</button>
+        </div>
+        <!-- Corps -->
+        <div class="space-y-4">{% include modal_content_template %}</div>
+        <!-- Footer Dynamique -->
+        {% if has_cancel or has_save or has_ok %}
+            <div class="flex items-center gap-3 pt-2">
+                {% if has_cancel %}
+                    <div class="flex-1">
+                        {% include "budget/components/button.html" with label=cancel_text|default:"Annuler" variant="ghost"
+                            onclick="document.getElementById('modal-container').innerHTML = ''" %}
+                    </div>
+                {% endif %}
+                {% if has_save %}
+                    <div class="flex-1">
+                        {% include "budget/components/button.html" with type="submit" label=save_text|default:"Enregistrer"
+                            variant="primary" form=form_id %}
+                    </div>
+                {% endif %}
+                {% if has_ok %}
+                    <div class="flex-1">
+                        {% include "budget/components/button.html" with label=ok_text|default:"OK" variant="primary"
+                            onclick="document.getElementById('modal-container').innerHTML = ''" %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>

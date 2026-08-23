@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@source "../../../templates/**/*.html";
+@source "../../../**/*.html";
+@source "../../../forms.py";
+
+@theme {
+  /* Palette principale */
+  --color-brand: #10b981;
+  --color-brand-dark: #020617;
+  --color-brand-card: #0f172a;
+  --color-brand-border: #1e293b;
+  --color-brand-hover: #334155;
+
+  /* Couleurs d'actions */
+  --color-action-primary: #10b981;
+  --color-action-primary-hover: #34d399;
+  --color-action-danger: #f43f5e;
+  --color-action-warning: #f59e0b;
+  --color-action-info: #3b82f6;
+
+  /* Variantes finances */
+  --color-finance-income: #10b981;
+  --color-finance-expense: #f43f5e;
+  --color-finance-warning: #f59e0b;
+  --color-finance-info: #3b82f6;
+
+  /* Rayons de bordure */
+  --radius-card: 1rem;
+  --radius-modal: 1.5rem;
+
+  /* Ombre personnalisée */
+  --shadow-card-glow: 0 4px 20px -2px rgba(16, 185, 129, 0.08);
+}
+
+/* Utilitaires réutilisables pour le projet */
+@utility input-base {
+  width: 100%;
+  background-color: #020617;
+  border-width: 1px;
+  border-color: var(--color-brand-border);
+  border-radius: 0.75rem;
+  color: #f1f5f9;
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-brand);
+  }
+}

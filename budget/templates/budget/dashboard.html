@@ -1,11 +1,19 @@
-{% extends "base.html" %} {% block title %}Dashboard | Mon Budget{% endblock %}
+{% extends "base.html" %}
+{% block title %}Dashboard | Mon Budget{% endblock %}
 {% block content %}
-<div class="space-y-6 mb-16 md:mb-0">
-  <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-sm">
-    <h1 class="text-xl font-bold text-slate-100">
-      Bienvenue sur ton Budget 👋
-    </h1>
-    <p class="text-sm text-slate-400 mt-1">Le layout mobile-first est prêt !</p>
+  <div class="space-y-6 mb-16 md:mb-0">
+    <div class="bg-brand-card border border-brand-border p-6 rounded-card shadow-sm">
+      <h1 class="text-xl font-bold text-slate-100">Bonjour {{ member.name|default:"à toi" }} 👋</h1>
+      <p class="text-xs text-slate-400 mt-0.5">Voici l'état de tes comptes en temps réel.</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for account in accounts %}
+        {% include "budget/partials/_account_card.html" with account=account %}
+      {% empty %}
+        <div class="col-span-full bg-brand-card border border-brand-border p-6 rounded-card text-center text-slate-400 text-sm">
+          Aucun compte bancaire actif trouvé. Va les configurer dans l'administration !
+        </div>
+      {% endfor %}
+    </div>
   </div>
-</div>
 {% endblock %}

@@ -1,0 +1,3 @@
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border {% if variant == 'success' or variant == 'income' %} bg-finance-income/10 text-finance-income border-finance-income/20 {% elif variant == 'danger' or variant == 'expense' %} bg-finance-expense/10 text-finance-expense border-finance-expense/20 {% elif variant == 'warning' %} bg-finance-warning/10 text-finance-warning border-finance-warning/20 {% else %} bg-brand-border/50 text-slate-300 border-brand-border {% endif %}">
+    {{ text }}
+</span>
