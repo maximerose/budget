@@ -20,7 +20,7 @@
     </div>
     <div>
       <span class="text-[9px] text-slate-500 uppercase font-semibold block">Fixes</span>
-      {% include "budget/components/amount.html" with amount=totals.after_fixed custom_class="text-xs" %}
+      {% include "budget/components/amount.html" with amount=totals.after_recurring custom_class="text-xs" %}
     </div>
     <div>
       <span class="text-[9px] text-slate-500 uppercase font-semibold block">Var.</span>
@@ -41,7 +41,7 @@
       if (!canvas) return;
 
       const initial = parseFloat("{{ totals.initial|default:0 }}");
-      const afterFixed = parseFloat("{{ totals.after_fixed|default:0 }}");
+      const afterFixed = parseFloat("{{ totals.after_recurring|default:0 }}");
       const afterVar = parseFloat("{{ totals.after_variables|default:0 }}");
       const afterSavings = parseFloat("{{ totals.after_savings|default:0 }}");
       const afterIncomes = parseFloat("{{ totals.after_incomes|default:0 }}");

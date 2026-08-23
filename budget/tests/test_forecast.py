@@ -30,7 +30,9 @@ class MonthlyForecastTestCase(TestCase):
             current_balance=Decimal("1000.00"),
         )
         self.category = Category.objects.create(
-            name="Courses", default_bank_account=self.joint_account
+            name="Courses",
+            default_bank_account=self.joint_account,
+            owner=self.member,
         )
         self.today = timezone.localdate().replace(day=1)
 

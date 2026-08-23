@@ -50,21 +50,26 @@ class ForecastServiceTestCase(TestCase):
         )
 
         self.cat_housing = Category.objects.create(
-            name="Logement", default_bank_account=self.checking_account
+            name="Logement",
+            default_bank_account=self.checking_account,
+            owner=self.member,
         )
         self.cat_groceries = Category.objects.create(
             name="Courses",
             is_meal_voucher_eligible=True,
             default_bank_account=self.checking_account,
+            owner=self.member,
         )
         self.cat_salary = Category.objects.create(
             name="Salaire",
             is_income=True,
             default_bank_account=self.checking_account,
+            owner=self.member,
         )
         self.cat_savings = Category.objects.create(
             name="Épargne projet",
             default_bank_account=self.savings_account,
+            owner=self.member,
         )
 
     def test_calculate_monthly_projected_balances_complete_cascade(self) -> None:
@@ -125,7 +130,7 @@ class ForecastServiceTestCase(TestCase):
 
         self.assertEqual(steps["initial"][self.checking_account.id], Decimal("1500.00"))
         self.assertEqual(
-            steps["after_fixed"][self.checking_account.id], Decimal("900.00")
+            steps["after_recurring"][self.checking_account.id], Decimal("900.00")
         )
         self.assertEqual(
             steps["after_variables"][self.checking_account.id], Decimal("700.00")
@@ -168,29 +173,30 @@ class ForecastServiceTestCase(TestCase):
             category=self.cat_housing,
             bank_account=self.checking_account,
             transaction_type=TransactionType.EXPENSE,
+            recurring_expense=rent,
         )
         # Comme la transaction existe sur past_month, le réel a déjà impacté la banque.
-        # after_fixed reste 920€ (pas de ré-imputation des 600€ théoriques).
+        # after_recurring reste 920€ (pas de ré-imputation des 600€ théoriques).
         past_steps = calculate_monthly_projected_balances(
             member=self.member, month=past_month
         )
         self.assertEqual(
-            past_steps["after_fixed"][self.checking_account.id], Decimal("920.00")
+            past_steps["after_recurring"][self.checking_account.id], Decimal("920.00")
         )
 
         # 2. MOIS FUTUR : Aucune transaction sur septembre.
         # on déduit la prévision théorique (600€) du solde actuel (920€).
-        # after_fixed = 920 - 600 = 320€
+        # after_recurring = 920 - 600 = 320€
         future_steps = calculate_monthly_projected_balances(
             member=self.member, month=future_month
         )
         self.assertEqual(
-            future_steps["after_fixed"][self.checking_account.id], Decimal("320.00")
+            future_steps["after_recurring"][self.checking_account.id], Decimal("320.00")
         )
 
         # 3. MOIS EN COURS : Le loyer de 600€ est prélevé en août.
         # Solde BDD passe à 320€ (920 - 600).
-        # La transaction existant pour août, after_fixed reste à 320€.
+        # La transaction existant pour août, after_recurring reste à 320€.
         Transaction.objects.create(
             transaction_date=current_month,
             budget_month=current_month,
@@ -198,12 +204,14 @@ class ForecastServiceTestCase(TestCase):
             category=self.cat_housing,
             bank_account=self.checking_account,
             transaction_type=TransactionType.EXPENSE,
+            recurring_expense=rent,
         )
         current_steps = calculate_monthly_projected_balances(
             member=self.member, month=current_month
         )
         self.assertEqual(
-            current_steps["after_fixed"][self.checking_account.id], Decimal("320.00")
+            current_steps["after_recurring"][self.checking_account.id],
+            Decimal("320.00"),
         )
 
     def test_get_recurring_expenses_with_status(self) -> None:
@@ -232,6 +240,7 @@ class ForecastServiceTestCase(TestCase):
             category=self.cat_housing,
             bank_account=self.checking_account,
             transaction_type=TransactionType.EXPENSE,
+            recurring_expense=rent,
         )
         result_partial = get_recurring_expenses_with_status(self.member, self.today)
         self.assertEqual(result_partial[0]["status"], RecurringExpenseStatus.PARTIAL)
@@ -245,9 +254,37 @@ class ForecastServiceTestCase(TestCase):
             category=self.cat_housing,
             bank_account=self.checking_account,
             transaction_type=TransactionType.EXPENSE,
+            recurring_expense=rent,
         )
         result_completed = get_recurring_expenses_with_status(self.member, self.today)
         self.assertEqual(
             result_completed[0]["status"], RecurringExpenseStatus.COMPLETED
         )
         self.assertEqual(result_completed[0]["realized_amount"], Decimal("600.00"))
+
+    def test_recurring_expense_without_share(self) -> None:
+        """Vérifie le calcul et le statut d'une charge sans répartition (RecurringExpenseShare)."""
+        # Création de la charge SANS share, liée directement au compte courant
+        internet = RecurringExpense.objects.create(
+            label="Internet",
+            total_amount=Decimal("40.00"),
+            category=self.cat_housing,
+            default_bank_account=self.checking_account,
+        )
+
+        # 1. Vérification dans les projections (calculate_monthly_projecte_balances)
+        steps = calculate_monthly_projected_balances(self.member, self.today)
+
+        # Le solde initial est de 1500€. Après la charge fixe de 40€, il doit rester 1460€
+        self.assertEqual(
+            steps["after_recurring"][self.checking_account.id], Decimal("1460.00")
+        )
+
+        # 2. Vérification dans la liste des statuts (get_recurring_expenses_with_status)
+        status_list = get_recurring_expenses_with_status(self.member, self.today)
+
+        self.assertEqual(len(status_list), 1)
+        self.assertEqual(status_list[0]["expense"], internet)
+        self.assertEqual(status_list[0]["bank_account"], self.checking_account)
+        self.assertEqual(status_list[0]["expected_amount"], Decimal("40.00"))
+        self.assertEqual(status_list[0]["status"], RecurringExpenseStatus.WAITING)

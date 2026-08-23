@@ -21,7 +21,10 @@ from budget.utils import calculate_budget_month
 class TransactionAndTransferTestCase(TestCase):
     def setUp(self) -> None:
         self.member = HouseholdMember.objects.create(name="Maxime")
-        self.category = Category.objects.create(name="Loyer")
+        self.category = Category.objects.create(
+            name="Loyer",
+            owner=self.member,
+        )
         self.bank_account = BankAccount.objects.create(
             name="Compte courant",
             account_type=AccountType.CHECKING,
@@ -162,7 +165,10 @@ class TransactionAndTransferTestCase(TestCase):
         )
 
         eligible_cat = Category.objects.create(
-            name="Courses", is_income=False, is_meal_voucher_eligible=True
+            name="Courses",
+            is_income=False,
+            is_meal_voucher_eligible=True,
+            owner=self.member,
         )
         today = timezone.localdate()
 
@@ -202,7 +208,10 @@ class TransactionAndTransferTestCase(TestCase):
         initial_tr_balance = tr_account.current_balance
 
         eligible_cat = Category.objects.create(
-            name="Courses", is_income=False, is_meal_voucher_eligible=True
+            name="Courses",
+            is_income=False,
+            is_meal_voucher_eligible=True,
+            owner=self.member,
         )
 
         Transaction.objects.create(

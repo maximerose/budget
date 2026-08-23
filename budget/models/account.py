@@ -19,7 +19,9 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
     )
 
     def __str__(self) -> str:
-        return f"{self.name} (@{self.user.username})"
+        if self.user:
+            return f"{self.name} (@{self.user.username})"
+        return self.name
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Membre du foyer"
@@ -75,7 +77,10 @@ class BankAccount(BaseModel, SoftDeleteModel):
 
     def __str__(self) -> str:
         account_type_label = AccountType(self.account_type).label
-        return f"{self.name} ({account_type_label}) (@{self.owner.user.username})"
+        owner_display = (
+            f"(@{self.owner.user.username})" if self.owner.user else self.owner.name
+        )
+        return f"{self.name} ({account_type_label}) {owner_display}"
 
     def clean(self) -> None:
         super().clean()

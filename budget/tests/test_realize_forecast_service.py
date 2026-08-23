@@ -27,7 +27,9 @@ class CreateTransactionFromRecurringExpenseTestCase(TestCase):
             current_balance=Decimal("1000.00"),
         )
         self.category = Category.objects.create(
-            name="Abonnements", default_bank_account=self.account
+            name="Abonnements",
+            default_bank_account=self.account,
+            owner=self.member,
         )
         self.spotify = RecurringExpense.objects.create(
             label="Spotify",
@@ -43,7 +45,9 @@ class CreateTransactionFromRecurringExpenseTestCase(TestCase):
     def test_creates_transaction_from_recurring_share(self) -> None:
         # Action : validation de la charge Spotify
         tx = create_transaction_from_recurring_expense(
-            share=self.share,
+            expense=self.spotify,
+            bank_account=self.account,
+            amount=self.share.amount,
             budget_month=self.today,
         )
 
@@ -51,7 +55,7 @@ class CreateTransactionFromRecurringExpenseTestCase(TestCase):
         self.assertEqual(Transaction.objects.count(), 1)
         self.assertEqual(tx.label, "Spotify")
         self.assertEqual(tx.category, self.category)
-        self.assertEqual(tx.recurring_expense, self.spotify) 
+        self.assertEqual(tx.recurring_expense, self.spotify)
         self.assertEqual(tx.total_amount, Decimal("17.20"))
 
         # 2. Vérification que le compte bancaire a été débité (1000 - 17.20 = 982.80)

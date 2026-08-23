@@ -16,7 +16,9 @@ class AccountModelsTestCase(TestCase):
         )
 
     def test_bank_account_str(self) -> None:
-        self.assertEqual(str(self.bank_account), "Compte courant (Compte courant)")
+        self.assertEqual(
+            str(self.bank_account), "Compte courant (Compte courant) Maxime"
+        )
 
     def test_meal_voucher_account_default_limit(self) -> None:
         # Un compte TR sans limite spécifiée doit recevoir 25.00 par défaut via clean()

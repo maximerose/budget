@@ -2,7 +2,7 @@ from decimal import Decimal
 from urllib.request import Request
 
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from budget.models import BankAccount, HouseholdMember
@@ -17,6 +17,10 @@ from budget.services.forecast import (
 
 def dashboard_view(request: Request) -> HttpResponse:
     member = HouseholdMember.objects.filter(is_active=True).first()
+
+    if not member:
+        return redirect("/login/")
+
     accounts_with_projections = []
     recurring_expenses = []
 
@@ -36,9 +40,9 @@ def dashboard_view(request: Request) -> HttpResponse:
                         "initial": projection_steps.get("initial", {}).get(
                             account.id, Decimal("0.00")
                         ),
-                        "after_fixed": projection_steps.get("after_fixed", {}).get(
-                            account.id, Decimal("0.00")
-                        ),
+                        "after_recurring": projection_steps.get(
+                            "after_recurring", {}
+                        ).get(account.id, Decimal("0.00")),
                         "after_variables": projection_steps.get(
                             "after_variables", {}
                         ).get(account.id, Decimal("0.00")),

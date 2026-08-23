@@ -41,14 +41,14 @@ def calculate_monthly_projected_balances(
     if target_month < today:
         return {
             "initial": initial,
-            "after_fixed": initial.copy(),
+            "after_recurring": initial.copy(),
             "after_variables": initial.copy(),
             "after_savings": initial.copy(),
             "after_incomes": initial.copy(),
         }
 
     # 2.1 ÉTAPE 1 : Charges Fixes (Gestion hybride : Shares ou Expense direct)
-    after_fixed = initial.copy()
+    after_recurring = initial.copy()
     recurring_expenses = RecurringExpense.objects.filter(
         is_active=True,
         is_variable=False,
@@ -60,7 +60,7 @@ def calculate_monthly_projected_balances(
         if shares.exists():
             # Cas 1 : Répartition explicite via des Shares
             for share in shares:
-                if share.bank_account_id not in after_fixed:
+                if share.bank_account_id not in after_recurring:
                     continue
                 real_transactions = Transaction.objects.filter(
                     bank_account_id=share.bank_account_id,
@@ -70,11 +70,11 @@ def calculate_monthly_projected_balances(
                     transaction_type=TransactionType.EXPENSE,
                 )
                 if not real_transactions.exists():
-                    after_fixed[share.bank_account_id] -= share.amount
+                    after_recurring[share.bank_account_id] -= share.amount
         else:
             # Cas 2 : Pas de Share -> Compte cible déterminé automatiquement
             target_account = get_target_account_for_expense(expense, member)
-            if target_account and target_account.id in after_fixed:
+            if target_account and target_account.id in after_recurring:
                 real_transactions = Transaction.objects.filter(
                     bank_account_id=target_account.id,
                     recurring_expense=expense,
@@ -83,10 +83,10 @@ def calculate_monthly_projected_balances(
                     transaction_type=TransactionType.EXPENSE,
                 )
                 if not real_transactions.exists():
-                    after_fixed[target_account.id] -= expense.total_amount
+                    after_recurring[target_account.id] -= expense.total_amount
 
     # 2.2 ÉTAPE 2 : Charges Variables
-    after_variables = after_fixed.copy()
+    after_variables = after_recurring.copy()
     forecast_shares = MonthlyForecastShare.objects.filter(
         forecast__member=member,
         forecast__month__year=target_month.year,
@@ -175,7 +175,7 @@ def calculate_monthly_projected_balances(
 
     return {
         "initial": initial,
-        "after_fixed": after_fixed,
+        "after_recurring": after_recurring,
         "after_variables": after_variables,
         "after_savings": after_savings,
         "after_incomes": after_incomes,

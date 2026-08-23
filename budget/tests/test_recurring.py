@@ -11,12 +11,16 @@ from budget.models import (
     RecurringExpense,
     RecurringExpenseShare,
 )
+from budget.services.forecast import get_target_account_for_expense
 
 
 class RecurringExpenseModelsTestCase(TestCase):
     def setUp(self) -> None:
         self.member = HouseholdMember.objects.create(name="Maxime")
-        self.category = Category.objects.create(name="Loyer")
+        self.category = Category.objects.create(
+            name="Loyer",
+            owner=self.member,
+        )
         self.bank_account = BankAccount.objects.create(
             name="Compte courant",
             account_type=AccountType.CHECKING,
@@ -73,3 +77,43 @@ class RecurringExpenseModelsTestCase(TestCase):
 
         with self.assertRaises(ValidationError):
             share2.full_clean()
+
+    def test_get_target_bank_account_fallback(self) -> None:
+        """Vérifie la déduction du compte cible si aucune répartition (share) n'existe."""
+        expense = RecurringExpense.objects.create(
+            label="Internet",
+            total_amount=Decimal("30.00"),
+            category=self.category,
+        )
+
+        # 1. Ni la charge ni la catégorie n'ont de compte par défaut.
+        # Le système doit prendre le compte principal du membre (is_default=True)
+        self.bank_account.is_default = True
+        self.bank_account.save()
+        self.assertEqual(
+            get_target_account_for_expense(expense, self.member), self.bank_account
+        )
+
+        # 2. La catégorie a un compte par défaut (prioritaire sur le compte principal)
+        category_account = BankAccount.objects.create(
+            name="Compte Catégorie",
+            account_type=AccountType.CHECKING,
+            owner=self.member,
+        )
+        self.category.default_bank_account = category_account
+        self.category.save()
+        self.assertEqual(
+            get_target_account_for_expense(expense, self.member), category_account
+        )
+
+        # 3. La charge a un compte par défaut (priorité absolue)
+        expense_account = BankAccount.objects.create(
+            name="Compte Charge",
+            account_type=AccountType.CHECKING,
+            owner=self.member,
+        )
+        expense.default_bank_account = expense_account
+        expense.save()
+        self.assertEqual(
+            get_target_account_for_expense(expense, self.member), expense_account
+        )
