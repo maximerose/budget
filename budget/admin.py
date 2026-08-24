@@ -12,6 +12,13 @@ from budget.models import (
     Transaction,
     Transfer,
 )
+from budget.models.account import Household
+
+
+@admin.register(Household)
+class HouseholdAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+    ordering = ("name",)
 
 
 @admin.register(HouseholdMember)

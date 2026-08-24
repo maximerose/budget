@@ -9,7 +9,6 @@ from budget.models import (
     BankAccount,
     HouseholdMember,
     MonthlyForecastShare,
-    RecurringExpenseShare,
     Transaction,
     TransactionType,
 )

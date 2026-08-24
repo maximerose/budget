@@ -8,6 +8,26 @@ from django.utils import timezone
 from core.models import BaseModel, SoftDeleteModel
 
 
+class Visibility(models.TextChoices):
+    PRIVATE = "PRIVATE", "Privé"
+    SHARED = "SHARED", "Partagé"
+
+
+class Household(BaseModel, SoftDeleteModel):
+    name = models.CharField(
+        max_length=100,
+        verbose_name="Nom du foyer",
+        default="Mon foyer",
+    )
+
+    def __str__(self) -> str:
+        return self.name
+
+    class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
+        verbose_name = ("Foyer",)
+        verbose_name_plural = "Foyers"
+
+
 class HouseholdMember(BaseModel, SoftDeleteModel):
     name = models.CharField(max_length=100)
     user = models.ForeignKey(
@@ -16,6 +36,14 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
         null=True,
         blank=True,
         related_name="%(class)s_user",
+    )
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name="members",
+        null=True,
+        blank=True,
+        verbose_name="Foyer",
     )
 
     def __str__(self) -> str:
@@ -50,6 +78,13 @@ class BankAccount(BaseModel, SoftDeleteModel):
         related_name="bank_accounts",
         verbose_name="Propriétaire du compte",
     )
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.SHARED,
+        verbose_name="Visibilité",
+        help_text="Un compte privé ne sera visible que par son propriétaire.",
+    )
     current_balance = models.DecimalField(
         max_digits=15,
         decimal_places=2,
@@ -71,7 +106,7 @@ class BankAccount(BaseModel, SoftDeleteModel):
         null=True,
         blank=True,
         related_name="fallback_for",
-        verbose_name="Compte de transition",
+        verbose_name="Compte relais",
         help_text="Si ce compte est un compte Tickets Resto, alors vous pouvez renseigner un autre compte qui fait la bascule lors d'un paiement d'un montant supérieur à la limite quotidienne",
     )
 

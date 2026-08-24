@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db.models import ProtectedError
 from django.test import TestCase
 
 from budget.models import (
