@@ -2,7 +2,11 @@
 {% block card_body %}
   <!-- En-tête avec Solde Estimé dynamique -->
   <div class="flex items-center justify-between pb-2 border-b border-brand-border/60">
-    {% include "budget/components/heading.html" with level="3" title=account.name subtitle=account.get_account_type_display|default:"Compte" %}
+    {% if account.owner.id != member.id %}
+      {% include "budget/components/heading.html" with level="3" title=account.name|add:" ("|add:account.owner.name|add:")" subtitle=account.get_account_type_display|default:"Compte" %}
+    {% else %}
+      {% include "budget/components/heading.html" with level="3" title=account.name subtitle=account.get_account_type_display|default:"Compte" %}
+    {% endif %}
     <div class="text-right">
       <span class="text-[10px] text-slate-400 block uppercase font-bold">Solde estimé</span>
       {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-base font-extrabold" %}

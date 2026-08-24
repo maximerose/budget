@@ -1,3 +1,4 @@
-<span class="font-bold {{ custom_class|default:'' }} {% if amount < 0 %}text-action-danger{% else %}text-budget-income{% endif %}">
-  {{ amount|default:0 }} €
+<span {% if html_id %}id="{{ html_id }}"{% endif %}
+      class="font-bold {{ custom_class|default:'' }} {% if amount < 0 %}text-action-danger{% else %}text-budget-income{% endif %}">
+  {{ amount|default:0|floatformat:2 }} €
 </span>

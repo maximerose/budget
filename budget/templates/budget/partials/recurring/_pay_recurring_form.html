@@ -4,6 +4,91 @@
       id="pay-recurring-form"
       class="space-y-4">
   {% csrf_token %}
+  <!-- ENCART RÉCAPITULATIF (Reste inchangé) -->
+  <div class="bg-slate-900/50 p-3 rounded-xl border border-brand-border text-sm space-y-1 mb-2">
+    <div class="flex justify-between items-center">
+      <span class="text-slate-400">Total attendu ce mois :</span>
+      {% include "budget/components/amount.html" with amount=expected_total custom_class="!text-slate-200" %}
+    </div>
+    <div class="flex justify-between items-center">
+      <span class="text-slate-400">Reste à payer :</span>
+      {% include "budget/components/amount.html" with amount=remaining_to_pay html_id="dynamic-remaining" %}
+    </div>
+    {% if shares_details %}
+      <div class="pt-2 mt-2 border-t border-brand-border/50">
+        <span class="text-xs text-slate-500 uppercase font-semibold tracking-wider block mb-1">Répartition prévue :</span>
+        <ul class="space-y-0.5">
+          {% for share in shares_details %}
+            <li class="flex justify-between items-center text-xs">
+              <span class="text-slate-400">{{ share.name }}</span>
+              {% include "budget/components/amount.html" with amount=share.amount custom_class="!text-slate-300 font-medium" %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
   {% include "budget/components/select.html" with label="Compte prélevé" name="account_id" options=accounts selected=account.id required=True %}
-  {% include "budget/components/input.html" with label="Montant réel prélevé (€)" type="number" name="amount" value=expense.total_amount step="0.01" required=True autofocus=True %}
+  {% include "budget/components/input.html" with label="Montant réel prélevé (€)" type="number" name="amount" value=amount_to_pay step="0.01" required=True autofocus=True %}
+  <!-- NOUVEAU : ALERTE DYNAMIQUE MASQUÉE PAR DÉFAUT -->
+  <div id="diff-alert" class="hidden p-3 rounded-xl space-y-2 mt-2 transition-all">
+    <p id="diff-alert-title" class="text-xs font-bold uppercase tracking-wider"></p>
+    <label class="flex items-start gap-2 cursor-pointer">
+      <input type="checkbox"
+             name="update_default"
+             class="mt-0.5 rounded border-slate-600 bg-slate-900 focus:ring-1 focus:ring-offset-0 focus:ring-offset-transparent" />
+      <span class="text-sm text-slate-300">Appliquer définitivement ce montant pour les mois suivants.</span>
+    </label>
+  </div>
+  <!-- LOGIQUE DYNAMIQUE JS -->
+  <script>
+    (function() {
+        const form = document.getElementById('pay-recurring-form');
+        const amountInput = form.querySelector('input[name="amount"]');
+        const remainingDisplay = document.getElementById('dynamic-remaining');
+        const diffAlert = document.getElementById('diff-alert');
+        const diffAlertTitle = document.getElementById('diff-alert-title');
+        
+        const initialRemaining = parseFloat("{{ remaining_to_pay }}".replace(',', '.')) || 0;
+        const expectedAmount = parseFloat("{{ amount_to_pay }}".replace(',', '.')) || 0;
+
+        function updateRemaining() {
+            const inputValue = parseFloat(amountInput.value) || 0;
+            let newRemaining = initialRemaining - inputValue;
+            
+            remainingDisplay.textContent = newRemaining.toFixed(2).replace('.', ',') + ' €';
+            
+            if (newRemaining > 0) {
+                remainingDisplay.className = "font-bold text-action-warning";
+            } else if (newRemaining === 0) {
+                remainingDisplay.className = "font-bold text-budget-income";
+            } else {
+                remainingDisplay.className = "font-bold text-action-danger";
+            }
+
+            // Gestion de l'encart d'alerte et de mise à jour
+            if (inputValue !== expectedAmount && inputValue > 0) {
+                diffAlert.classList.remove('hidden');
+                if (newRemaining < 0) {
+                    // Saisie d'un montant TROP ÉLEVÉ
+                    diffAlert.className = "p-3 rounded-xl space-y-2 mt-2 transition-all bg-action-danger/10 border border-action-danger/30";
+                    diffAlertTitle.className = "text-xs font-bold uppercase tracking-wider text-action-danger";
+                    diffAlertTitle.textContent = "Attention : Vous payez plus que prévu !";
+                } else {
+                    // Saisie d'un montant différent (plus faible)
+                    diffAlert.className = "p-3 rounded-xl space-y-2 mt-2 transition-all bg-action-warning/10 border border-action-warning/30";
+                    diffAlertTitle.className = "text-xs font-bold uppercase tracking-wider text-action-warning";
+                    diffAlertTitle.textContent = "Montant inhabituel détecté";
+                }
+            } else {
+                diffAlert.classList.add('hidden');
+            }
+        }
+
+        if (amountInput && remainingDisplay) {
+            amountInput.addEventListener('input', updateRemaining);
+            updateRemaining();
+        }
+    })();
+  </script>
 </form>

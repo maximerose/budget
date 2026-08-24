@@ -6,7 +6,7 @@ from django.db import models
 
 from core.models import BaseModel, SoftDeleteModel
 
-from .account import BankAccount
+from .account import BankAccount, Household, HouseholdMember, Visibility
 from .category import Category
 
 
@@ -17,6 +17,29 @@ class RecurringExpenseStatus(models.TextChoices):
 
 
 class RecurringExpense(BaseModel, SoftDeleteModel):
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name="recurring_expenses",
+        null=True,
+        blank=True,
+        verbose_name="Foyer",
+    )
+    owner = models.ForeignKey(
+        HouseholdMember,
+        on_delete=models.CASCADE,
+        related_name="personal_recurring_expenses",
+        null=True,
+        blank=True,
+        verbose_name="Propriétaire (Laisser vide si charge commune)",
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.SHARED,
+        verbose_name="Visibilité",
+        help_text="Une charge privée ne sera visible que par son propriétaire.",
+    )
     label = models.CharField(max_length=100, verbose_name="Nom")
     total_amount = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name="Montant"

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from urllib.request import Request
 
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -12,6 +13,7 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
+from budget.models.account import Visibility
 from budget.models.category import CategoryType
 
 
@@ -70,10 +72,22 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
         is_active=True, household=current_member.household
     ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVING])
 
-    # CORRECTION ICI : On utilise owner__household pour atteindre le foyer du compte
     accounts = BankAccount.objects.filter(
-        is_active=True, owner__household=current_member.household
-    )
+        Q(owner=current_member)
+        | Q(owner__household=current_member.household, visibility=Visibility.SHARED),
+        is_active=True,
+    ).distinct()
+
+    account_options = [
+        {
+            "id": acc.id,
+            "name": f"{acc.name} ({acc.owner.name})"
+            if acc.owner_id != current_member.id
+            else acc.name,
+        }
+        for acc in accounts
+    ]
+
     today = timezone.localdate()
 
     return render(
@@ -81,7 +95,7 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
         "budget/partials/transactions/_modal_quick_expense.html",
         {
             "categories": categories,
-            "accounts": accounts,
+            "accounts": account_options,
             "today": today,
         },
     )

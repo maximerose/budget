@@ -33,6 +33,14 @@ class Category(BaseModel, SoftDeleteModel):
     is_meal_voucher_eligible = models.BooleanField(
         default=False, verbose_name="Éligible aux Tickets Resto"
     )
+    default_bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="default_for_categories",
+        verbose_name="Compte par défaut",
+    )
 
     def __str__(self) -> str:
         return self.name
