@@ -46,20 +46,34 @@ def calculate_monthly_projected_balances(
             "after_incomes": initial.copy(),
         }
 
+    recurring_overrides = {
+        f.recurring_expense_id: f.amount
+        for f in MonthlyForecast.objects.filter(
+            member=member,
+            month__year=target_month.year,
+            month__month=target_month.month,
+            recurring_expense__isnull=False,
+            is_active=True,
+        )
+    }
+
     # 2.1 ÉTAPE 1 : Charges Fixes (Gestion hybride : Shares ou Expense direct)
     after_recurring = initial.copy()
+
     recurring_expenses = RecurringExpense.objects.filter(
         is_active=True,
-        is_variable=False,
     ).select_related("category", "default_bank_account")
 
     for expense in recurring_expenses:
+        expected_amount = recurring_overrides.get(expense.id, expense.total_amount)
         shares = expense.shares.filter(is_active=True)
 
         if shares.exists():
+            # Cas 1 : Répartition explicite via des Shares
             for share in shares:
                 if share.bank_account_id not in after_recurring:
                     continue
+
                 real_transactions = Transaction.objects.filter(
                     bank_account_id=share.bank_account_id,
                     recurring_expense=expense,
@@ -67,10 +81,21 @@ def calculate_monthly_projected_balances(
                     budget_month__month=target_month.month,
                     transaction_type=TransactionType.EXPENSE,
                 )
+
                 if not real_transactions.exists():
-                    after_recurring[share.bank_account_id] -= share.amount
+                    # Calcul au prorata si le montant total a été modifié via un override
+                    ratio = (
+                        share.amount / expense.total_amount
+                        if expense.total_amount > Decimal("0.00")
+                        else Decimal("1.00")
+                    )
+                    adjusted_share_amount = expected_amount * ratio
+
+                    after_recurring[share.bank_account_id] -= adjusted_share_amount
         else:
+            # Cas 2 : Pas de Share -> Compte cible déterminé automatiquement
             target_account = get_target_account_for_expense(expense, member)
+
             if target_account and target_account.id in after_recurring:
                 real_transactions = Transaction.objects.filter(
                     bank_account_id=target_account.id,
@@ -79,8 +104,9 @@ def calculate_monthly_projected_balances(
                     budget_month__month=target_month.month,
                     transaction_type=TransactionType.EXPENSE,
                 )
+
                 if not real_transactions.exists():
-                    after_recurring[target_account.id] -= expense.total_amount
+                    after_recurring[target_account.id] -= expected_amount
 
     # 2.2 ÉTAPE 2 : Charges Variables (Prévisions liées à une catégorie)
     after_variables = after_recurring.copy()
@@ -208,19 +234,47 @@ def get_recurring_expenses_with_status(
     member: HouseholdMember, month: datetime.date
 ) -> list[dict]:
     target_month = month.replace(day=1)
+
+    # On affiche toutes les charges actives (qu'elles soient fixes ou variables !)
     expenses = RecurringExpense.objects.filter(
         is_active=True,
-        is_variable=False,
     ).select_related("category", "default_bank_account")
+
+    # On récupère les overrides (exceptions) du mois
+    recurring_overrides = {
+        f.recurring_expense_id: f.amount
+        for f in MonthlyForecast.objects.filter(
+            member=member,
+            month__year=target_month.year,
+            month__month=target_month.month,
+            recurring_expense__isnull=False,
+            is_active=True,
+        )
+    }
 
     results = []
     for expense in expenses:
+        # Montant attendu pour ce mois (Override ou Base)
+        expected_total = recurring_overrides.get(expense.id, expense.total_amount)
         shares = expense.shares.filter(is_active=True)
 
         if shares.exists():
             for share in shares:
-                if share.bank_account.owner != member:
+                # On tolère les comptes joints (owner is None) ou les comptes du membre
+                if (
+                    share.bank_account.owner != member
+                    and share.bank_account.owner is not None
+                ):
                     continue
+
+                # Calcul du montant attendu au prorata
+                ratio = (
+                    share.amount / expense.total_amount
+                    if expense.total_amount > Decimal("0.00")
+                    else Decimal("1.00")
+                )
+                expected_share_amount = expected_total * ratio
+
                 realized = Transaction.objects.filter(
                     bank_account_id=share.bank_account_id,
                     recurring_expense=expense,
@@ -234,7 +288,7 @@ def get_recurring_expenses_with_status(
                     if realized == Decimal("0.00")
                     else (
                         RecurringExpenseStatus.PARTIAL
-                        if realized < share.amount
+                        if realized < expected_share_amount
                         else RecurringExpenseStatus.COMPLETED
                     )
                 )
@@ -243,14 +297,16 @@ def get_recurring_expenses_with_status(
                     {
                         "expense": expense,
                         "bank_account": share.bank_account,
-                        "expected_amount": share.amount,
+                        "expected_amount": expected_share_amount,
                         "realized_amount": realized,
                         "status": status,
                     }
                 )
         else:
             target_account = get_target_account_for_expense(expense, member)
-            if target_account and target_account.owner == member:
+            if target_account and (
+                target_account.owner == member or target_account.owner is None
+            ):
                 realized = Transaction.objects.filter(
                     bank_account_id=target_account.id,
                     recurring_expense=expense,
@@ -264,7 +320,7 @@ def get_recurring_expenses_with_status(
                     if realized == Decimal("0.00")
                     else (
                         RecurringExpenseStatus.PARTIAL
-                        if realized < expense.total_amount
+                        if realized < expected_total
                         else RecurringExpenseStatus.COMPLETED
                     )
                 )
@@ -273,7 +329,7 @@ def get_recurring_expenses_with_status(
                     {
                         "expense": expense,
                         "bank_account": target_account,
-                        "expected_amount": expense.total_amount,
+                        "expected_amount": expected_total,
                         "realized_amount": realized,
                         "status": status,
                     }

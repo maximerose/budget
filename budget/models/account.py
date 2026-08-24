@@ -4,6 +4,7 @@ from typing import ClassVar
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Case, Value, When
 from django.utils import timezone
 
 from core.models import BaseModel, SoftDeleteModel
@@ -27,6 +28,7 @@ class Household(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = ("Foyer",)
         verbose_name_plural = "Foyers"
+        ordering: ClassVar[list[str]] = ["name"]
 
 
 class HouseholdMember(BaseModel, SoftDeleteModel):
@@ -55,6 +57,7 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Membre du foyer"
         verbose_name_plural = "Membres du foyer"
+        ordering: ClassVar[list[str]] = ["name"]
 
 
 class AccountType(models.TextChoices):
@@ -140,6 +143,19 @@ class BankAccount(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Compte bancaire"
         verbose_name_plural = "Comptes bancaires"
+
+        # Le tri natif en base de données géré par Django !
+        ordering: ClassVar[list] = [
+            Case(
+                When(account_type=AccountType.CHECKING, then=Value(1)),
+                When(account_type=AccountType.MEAL_VOUCHER, then=Value(2)),
+                When(account_type=AccountType.SAVINGS, then=Value(3)),
+                When(account_type=AccountType.BUSINESS, then=Value(4)),
+                default=Value(5),
+            ),
+            "-is_default",  # Entre deux comptes courants, le "par défaut" gagne
+            "name",  # Et enfin on trie par ordre alphabétique
+        ]
 
 
 class AccountSnapshot(BaseModel):

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -55,3 +57,4 @@ class Category(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Catégorie"
         verbose_name_plural = "Catégories"
+        ordering: ClassVar[list[str]] = ["name"]

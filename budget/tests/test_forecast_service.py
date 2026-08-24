@@ -291,3 +291,36 @@ class ForecastServiceTestCase(TestCase):
         self.assertEqual(len(status_list), 1)
         self.assertEqual(status_list[0]["expense"], internet)
         self.assertEqual(status_list[0]["status"], RecurringExpenseStatus.WAITING)
+
+    def test_recurring_expense_override_and_prorata(self) -> None:
+        """Vérifie qu'un override mensuel modifie bien la projection et le statut au prorata."""
+        rent = RecurringExpense.objects.create(
+            label="Loyer",
+            total_amount=Decimal("1000.00"),
+            category=self.cat_housing,
+        )
+        # Part théorique de 500€ (soit 50% de la charge globale)
+        RecurringExpenseShare.objects.create(
+            recurring_expense=rent,
+            bank_account=self.checking_account,
+            amount=Decimal("500.00"),
+        )
+
+        # Override de 1200€ ce mois-ci !
+        MonthlyForecast.objects.create(
+            month=self.today,
+            recurring_expense=rent,
+            member=self.member,
+            amount=Decimal("1200.00"),
+        )
+
+        # 1. Test de la projection (prorata: 50% de 1200€ = 600€)
+        steps = calculate_monthly_projected_balances(self.member, self.today)
+        # Compte courant initial : 1500€. Moins 600€ = 900€
+        self.assertEqual(
+            steps["after_recurring"][self.checking_account.id], Decimal("900.00")
+        )
+
+        # 2. Test des statuts (l'interface doit afficher 600€ attendus)
+        status_list = get_recurring_expenses_with_status(self.member, self.today)
+        self.assertEqual(status_list[0]["expected_amount"], Decimal("600.00"))

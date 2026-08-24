@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -127,6 +128,7 @@ class Transaction(BaseModel):
     class Meta(BaseModel.Meta):
         verbose_name = "Transaction"
         verbose_name_plural = "Transactions"
+        ordering: ClassVar[list[str]] = ["-transaction_date", "-created_at"]
 
 
 class Transfer(BaseModel):
@@ -178,3 +180,4 @@ class Transfer(BaseModel):
     class Meta(BaseModel.Meta):
         verbose_name = "Transfert"
         verbose_name_plural = "Transferts"
+        ordering: ClassVar[list[str]] = ["-date", "-created_at"]

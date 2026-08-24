@@ -4,10 +4,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from budget.models.recurring import RecurringExpense
 from core.models import BaseModel, SoftDeleteModel
 
-from .account import BankAccount, HouseholdMember
-from .category import Category
+from .account import AccountType, BankAccount, HouseholdMember
+from .category import Category, CategoryType
 
 
 class MonthlyForecast(BaseModel, SoftDeleteModel):
@@ -35,6 +36,7 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
         null=True,
         blank=True,
         verbose_name="Catégorie (Dépenses / Revenus)",
+        limit_choices_to={"type__in": [CategoryType.VARIABLE, CategoryType.INCOME]},
     )
 
     # Option B : Pour l'épargne
@@ -45,20 +47,41 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
         null=True,
         blank=True,
         verbose_name="Compte cible (Épargne)",
+        limit_choices_to={"account_type": AccountType.SAVINGS},
+    )
+
+    # Option C : Override d'une charge récurrente
+    recurring_expense = models.ForeignKey(
+        RecurringExpense,
+        on_delete=models.CASCADE,
+        related_name="forecast_overrides",
+        null=True,
+        blank=True,
+        verbose_name="Charge fixe (Exception mensuelle)",
     )
 
     def __str__(self) -> str:
-        return f"{self.member.name} - {self.category.name} ({self.month.strftime('%m/%Y')}): {self.amount} €"
+        if self.category:
+            target = self.category.name
+        elif self.bank_account:
+            target = self.bank_account.name
+        elif self.recurring_expense:
+            target = self.recurring_expense.label
+        else:
+            target = "Non défini"
+
+        return f"{self.member.name} - {target} ({self.month.strftime('%m/%Y')}): {self.amount} €"
 
     def clean(self) -> None:
         super().clean()
-        if not self.category and not self.bank_account:
+        # On vérifie qu'exactement UN SEUL des trois champs est rempli
+        filled_fields = sum(
+            [bool(self.category), bool(self.bank_account), bool(self.recurring_expense)]
+        )
+
+        if filled_fields != 1:
             raise ValidationError(
-                "Une prévision doit être liée soit à une Catégorie, soit à un Compte bancaire."
-            )
-        if self.category and self.bank_account:
-            raise ValidationError(
-                "Une prévision ne peut pas être liée à la fois à une Catégorie et à un Compte bancaire."
+                "Une prévision doit cibler EXACTEMENT UNE de ces options : Catégorie, Compte bancaire, ou Charge fixe."
             )
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
@@ -70,3 +93,4 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
                 name="unique_monthly_category_forecast_per_member",
             )
         ]
+        ordering: ClassVar[list[str]] = ["-month", "category__name", "bank_account__name"]

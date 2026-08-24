@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -61,6 +62,7 @@ class RecurringExpense(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Charge récurrente"
         verbose_name_plural = "Charges récurrentes"
+        ordering: ClassVar[list[str]] = ["label"]
 
 
 class RecurringExpenseShare(BaseModel, SoftDeleteModel):
