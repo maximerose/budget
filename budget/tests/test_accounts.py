@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from budget.models import AccountType, BankAccount, HouseholdMember
@@ -23,6 +24,7 @@ class AccountModelsTestCase(TestCase):
             account_type=AccountType.CHECKING,
             owner=self.member,
             current_balance=Decimal("1000.00"),
+            is_default=True,
         )
 
     def test_household_and_members_relationship(self) -> None:
@@ -39,12 +41,10 @@ class AccountModelsTestCase(TestCase):
             str(self.bank_account), "Compte courant (Compte courant) Maxime"
         )
 
-    def test_bank_account_visibility_default(self) -> None:
-        """Vérifie que la visibilité par défaut d'un compte est partagée (SHARED)."""
+    def test_bank_account_visibility_default_and_custom(self) -> None:
+        """Vérifie la gestion de la visibilité SHARED et PRIVATE."""
         self.assertEqual(self.bank_account.visibility, Visibility.SHARED)
 
-    def test_bank_account_visibility_private(self) -> None:
-        """Vérifie qu'un compte privé conserve bien son statut."""
         private_account = BankAccount.objects.create(
             name="Compte Secret",
             account_type=AccountType.CHECKING,
@@ -61,6 +61,17 @@ class AccountModelsTestCase(TestCase):
             owner=self.member,
         )
         self.assertEqual(tr_account.daily_meal_voucher_limit, Decimal("25.00"))
+
+    def test_checking_account_only_can_be_default(self) -> None:
+        """Vérifie que seul un compte courant peut être défini comme compte par défaut."""
+        savings_account = BankAccount(
+            name="Livret A",
+            account_type=AccountType.SAVINGS,
+            owner=self.member,
+            is_default=True,
+        )
+        with self.assertRaises(ValidationError):
+            savings_account.full_clean()
 
     def test_checking_account_forces_null_limit(self) -> None:
         # Un compte courant ne doit jamais avoir de limite TR, même si on tente de lui en assigner une

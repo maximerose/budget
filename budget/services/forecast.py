@@ -8,11 +8,13 @@ from budget.models import (
     AccountType,
     BankAccount,
     HouseholdMember,
-    MonthlyForecastShare,
     Transaction,
     TransactionType,
 )
+from budget.models.category import CategoryType
+from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense, RecurringExpenseStatus
+from budget.models.transaction import Transfer
 
 
 def get_target_account_for_expense(
@@ -21,8 +23,6 @@ def get_target_account_for_expense(
     """Détermine le compte bancaire cible selon les priorités."""
     if expense.default_bank_account:
         return expense.default_bank_account
-    if expense.category and expense.category.default_bank_account:
-        return expense.category.default_bank_account
     return BankAccount.objects.filter(
         owner=member, is_default=True, is_active=True
     ).first()
@@ -57,7 +57,6 @@ def calculate_monthly_projected_balances(
         shares = expense.shares.filter(is_active=True)
 
         if shares.exists():
-            # Cas 1 : Répartition explicite via des Shares
             for share in shares:
                 if share.bank_account_id not in after_recurring:
                     continue
@@ -71,7 +70,6 @@ def calculate_monthly_projected_balances(
                 if not real_transactions.exists():
                     after_recurring[share.bank_account_id] -= share.amount
         else:
-            # Cas 2 : Pas de Share -> Compte cible déterminé automatiquement
             target_account = get_target_account_for_expense(expense, member)
             if target_account and target_account.id in after_recurring:
                 real_transactions = Transaction.objects.filter(
@@ -84,93 +82,118 @@ def calculate_monthly_projected_balances(
                 if not real_transactions.exists():
                     after_recurring[target_account.id] -= expense.total_amount
 
-    # 2.2 ÉTAPE 2 : Charges Variables
+    # 2.2 ÉTAPE 2 : Charges Variables (Prévisions liées à une catégorie)
     after_variables = after_recurring.copy()
-    forecast_shares = MonthlyForecastShare.objects.filter(
-        forecast__member=member,
-        forecast__month__year=target_month.year,
-        forecast__month__month=target_month.month,
-        forecast__is_active=True,
+
+    category_forecasts = MonthlyForecast.objects.filter(
+        member=member,
+        month__year=target_month.year,
+        month__month=target_month.month,
+        category__isnull=False,
         is_active=True,
-    ).select_related("forecast__category", "bank_account")
+    ).select_related("category")
 
     tr_accounts = [
         acc for acc in accounts if acc.account_type == AccountType.MEAL_VOUCHER
     ]
+    default_account = next((acc for acc in accounts if acc.is_default), None)
 
-    for share in forecast_shares:
-        category = share.forecast.category
-        target_account = share.bank_account
+    for forecast in category_forecasts:
+        category = forecast.category
 
-        is_savings = (
-            target_account.account_type == AccountType.SAVINGS
-            or category.default_bank_account_id
-            and BankAccount.objects.filter(
-                id=category.default_bank_account_id,
-                account_type=AccountType.SAVINGS,
-            ).exists()
-        )
-
-        if category.is_income or is_savings:
+        if category.type in [CategoryType.INCOME, CategoryType.SAVING]:
             continue
 
         realized = Transaction.objects.filter(
-            bank_account_id=share.bank_account_id,
+            bank_account__owner=member,
             category_id=category.id,
             budget_month__year=target_month.year,
             budget_month__month=target_month.month,
             transaction_type=TransactionType.EXPENSE,
         ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
 
-        amount = max(Decimal("0.00"), share.amount - realized)
+        remaining = max(Decimal("0.00"), forecast.amount - realized)
 
-        if category.is_meal_voucher_eligible and tr_accounts:
-            for tr_acc in tr_accounts:
-                available_tr = after_variables.get(tr_acc.id, Decimal("0.00"))
-                if available_tr > Decimal("0.00"):
-                    tr_deduction = min(amount, available_tr)
-                    after_variables[tr_acc.id] -= tr_deduction
-                    amount -= tr_deduction
-                    if amount == Decimal("0.00"):
+        if remaining > Decimal("0.00"):
+            if category.is_meal_voucher_eligible and tr_accounts:
+                for tr_acc in tr_accounts:
+                    if remaining <= Decimal("0.00"):
                         break
+                    available_tr = max(
+                        Decimal("0.00"), after_variables.get(tr_acc.id, Decimal("0.00"))
+                    )
 
-        if amount > Decimal("0.00"):
-            after_variables[target_account.id] -= amount
+                    if available_tr > Decimal("0.00"):
+                        tr_deduction = min(remaining, available_tr)
+                        after_variables[tr_acc.id] -= tr_deduction
+                        remaining -= tr_deduction
+
+                if remaining > Decimal("0.00") and default_account:
+                    after_variables[default_account.id] -= remaining
+            else:
+                if default_account:
+                    after_variables[default_account.id] -= remaining
 
     # 2.3 ÉTAPE 3 : Épargne
     after_savings = after_variables.copy()
-    for share in forecast_shares:
-        category = share.forecast.category
-        target_account = share.bank_account
 
-        is_savings = (
-            target_account.account_type == AccountType.SAVINGS
-            or category.default_bank_account_id
-            and BankAccount.objects.filter(
-                id=category.default_bank_account_id,
-                account_type=AccountType.SAVINGS,
-            ).exists()
+    saving_forecasts = MonthlyForecast.objects.filter(
+        member=member,
+        month__year=target_month.year,
+        month__month=target_month.month,
+        bank_account__isnull=False,
+        bank_account__account_type=AccountType.SAVINGS,
+        is_active=True,
+    ).select_related("bank_account")
+
+    for forecast in saving_forecasts:
+        target_account = forecast.bank_account
+
+        realized_transfers = Transfer.objects.filter(
+            destination_account=target_account,
+            source_account__owner=member,
+            date__year=target_month.year,
+            date__month=target_month.month,
+        ).aggregate(Sum("amount"))["amount__sum"] or Decimal("0.00")
+
+        realized_transactions = Transaction.objects.filter(
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            bank_account=target_account,
+            transaction_type=TransactionType.INCOME,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+        remaining = max(
+            Decimal("0.00"),
+            forecast.amount - realized_transfers - realized_transactions,
         )
 
-        if is_savings and not category.is_income:
-            after_savings[share.bank_account_id] -= share.amount
-            if category.default_bank_account_id:
-                after_savings[category.default_bank_account_id] += share.amount
+        if remaining > Decimal("0.00"):
+            if default_account:
+                after_savings[default_account.id] -= remaining
+            if target_account.id in after_savings:
+                after_savings[target_account.id] += remaining
 
     # 2.4 ÉTAPE 4 : Revenus
     after_incomes = after_savings.copy()
-    income_shares = forecast_shares.filter(forecast__category__is_income=True)
 
-    for share in income_shares:
+    income_forecasts = [
+        f for f in category_forecasts if f.category.type == CategoryType.INCOME
+    ]
+
+    for forecast in income_forecasts:
         realized = Transaction.objects.filter(
-            bank_account_id=share.bank_account_id,
-            category_id=share.forecast.category_id,
+            bank_account__owner=member,
+            category_id=forecast.category_id,
             budget_month__year=target_month.year,
             budget_month__month=target_month.month,
             transaction_type=TransactionType.INCOME,
         ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
-        remaining_to_receive = max(Decimal("0.00"), share.amount - realized)
-        after_incomes[share.bank_account_id] += remaining_to_receive
+
+        remaining_to_receive = max(Decimal("0.00"), forecast.amount - realized)
+
+        if remaining_to_receive > Decimal("0.00") and default_account:
+            after_incomes[default_account.id] += remaining_to_receive
 
     return {
         "initial": initial,

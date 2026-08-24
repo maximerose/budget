@@ -12,6 +12,7 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
+from budget.models.category import CategoryType
 
 
 def adjust_account_balance_view(
@@ -22,11 +23,11 @@ def adjust_account_balance_view(
     if request.method == "POST":
         new_balance = Decimal(request.POST.get("new_balance", "0.00"))
 
-        # On met à jou le solde du compte et la date
+        # On met à jour le solde du compte et la date
         account.current_balance = new_balance
         account.save()
 
-        # On ferme la modale et on rafraîchit la pagepour voir le nouveau solde
+        # On ferme la modale et on rafraîchit la page pour voir le nouveau solde
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
 
@@ -64,11 +65,15 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
         response["HX-Refresh"] = "true"
         return response
 
-    # On filtre les catégories et les comptes du membre connecté uniquement
+    # On filtre les catégories et les comptes liés au FOYER (exclusion des revenus/épargne)
     categories = Category.objects.filter(
-        is_active=True, is_income=False, owner=current_member
+        is_active=True, household=current_member.household
+    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVING])
+
+    # CORRECTION ICI : On utilise owner__household pour atteindre le foyer du compte
+    accounts = BankAccount.objects.filter(
+        is_active=True, owner__household=current_member.household
     )
-    accounts = BankAccount.objects.filter(is_active=True, owner=current_member)
     today = timezone.localdate()
 
     return render(

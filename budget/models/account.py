@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -124,6 +125,13 @@ class BankAccount(BaseModel, SoftDeleteModel):
                 self.daily_meal_voucher_limit = Decimal("25.00")
         else:
             self.daily_meal_voucher_limit = None
+
+        if self.is_default and self.account_type != AccountType.CHECKING:
+            raise ValidationError(
+                {
+                    "is_default": "Seul un compte courant peur être défini comme compte par défaut",
+                }
+            )
 
     def save(self, *args, **kwargs) -> None:
         self.full_clean()

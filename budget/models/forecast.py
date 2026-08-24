@@ -1,4 +1,3 @@
-from decimal import Decimal
 from typing import ClassVar
 
 from django.core.exceptions import ValidationError
@@ -12,12 +11,9 @@ from .category import Category
 
 
 class MonthlyForecast(BaseModel, SoftDeleteModel):
-    month = models.DateField(default=timezone.localdate, verbose_name="Mois")
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.CASCADE,
-        related_name="forecasts",
-        verbose_name="Catégorie",
+    month = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Mois",
     )
     member = models.ForeignKey(
         HouseholdMember,
@@ -25,19 +21,45 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
         related_name="forecasts",
         verbose_name="Utilisateur associé",
     )
-    total_amount = models.DecimalField(
-        max_digits=15, decimal_places=2, verbose_name="Montant de la prévision"
+    amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name="Montant de la prévision",
+    )
+
+    # Option A : Pour les dépenses et les revenus
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="forecasts",
+        null=True,
+        blank=True,
+        verbose_name="Catégorie (Dépenses / Revenus)",
+    )
+
+    # Option B : Pour l'épargne
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.CASCADE,
+        related_name="savings_forecasts",
+        null=True,
+        blank=True,
+        verbose_name="Compte cible (Épargne)",
     )
 
     def __str__(self) -> str:
-        return f"{self.member.name} - {self.category.name} ({self.month.strftime('%m/%Y')}): {self.total_amount} €"
+        return f"{self.member.name} - {self.category.name} ({self.month.strftime('%m/%Y')}): {self.amount} €"
 
-    def get_remaining_amount_to_split(self) -> Decimal:
-        """Calcule le montant restant à répartir entre les comptes."""
-        allocated = self.shares.aggregate(models.Sum("amount"))[
-            "amount__sum"
-        ] or Decimal("0.00")
-        return self.total_amount - allocated
+    def clean(self) -> None:
+        super().clean()
+        if not self.category and not self.bank_account:
+            raise ValidationError(
+                "Une prévision doit être liée soit à une Catégorie, soit à un Compte bancaire."
+            )
+        if self.category and self.bank_account:
+            raise ValidationError(
+                "Une prévision ne peut pas être liée à la fois à une Catégorie et à un Compte bancaire."
+            )
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Prévision mensuelle"
@@ -48,46 +70,3 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
                 name="unique_monthly_category_forecast_per_member",
             )
         ]
-
-
-class MonthlyForecastShare(BaseModel, SoftDeleteModel):
-    forecast = models.ForeignKey(
-        MonthlyForecast,
-        on_delete=models.CASCADE,
-        related_name="shares",
-        verbose_name="Prévision",
-    )
-    bank_account = models.ForeignKey(
-        BankAccount,
-        on_delete=models.CASCADE,
-        related_name="forecast_shares",
-        verbose_name="Compte associé",
-    )
-    amount = models.DecimalField(
-        max_digits=15, decimal_places=2, verbose_name="Montant"
-    )
-
-    def __str__(self) -> str:
-        return (
-            f"{self.forecast.category.name} - {self.bank_account.name}: {self.amount} €"
-        )
-
-    def clean(self) -> None:
-        super().clean()
-        if not self.forecast_id:
-            return
-
-        existing_shares_sum = MonthlyForecastShare.objects.filter(
-            forecast=self.forecast
-        ).exclude(pk=self.pk).aggregate(models.Sum("amount"))["amount__sum"] or Decimal(
-            "0.00"
-        )
-
-        if existing_shares_sum + self.amount > self.forecast.total_amount:
-            raise ValidationError(
-                f"La somme des parts ({existing_shares_sum + self.amount} €) dépasse le montant total de la prévision ({self.forecast.total_amount} €)."
-            )
-
-    class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
-        verbose_name = "Répartition de prévision"
-        verbose_name_plural = "Répartitions de prévisions"

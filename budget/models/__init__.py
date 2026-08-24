@@ -1,6 +1,6 @@
 from .account import AccountSnapshot, AccountType, BankAccount, HouseholdMember
 from .category import Category
-from .forecast import MonthlyForecast, MonthlyForecastShare
+from .forecast import MonthlyForecast
 from .recurring import RecurringExpense, RecurringExpenseShare
 from .transaction import Transaction, TransactionType, Transfer
 
@@ -11,7 +11,6 @@ __all__ = [
     "Category",
     "HouseholdMember",
     "MonthlyForecast",
-    "MonthlyForecastShare",
     "RecurringExpense",
     "RecurringExpenseShare",
     "Transaction",

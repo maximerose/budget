@@ -1,28 +1,33 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from budget.models.account import BankAccount, HouseholdMember
+from budget.models.account import BankAccount, Household
 from core.models import BaseModel, SoftDeleteModel
 
 
+class CategoryType(models.TextChoices):
+    RECURRING = "RECURRING", "Charge fixe"
+    VARIABLE = "VARIABLE", "Charge variable"
+    SAVING = "SAVING", "Épargne"
+    INCOME = "INCOME", "Revenu"
+
+
 class Category(BaseModel, SoftDeleteModel):
-    owner = models.ForeignKey(
-        HouseholdMember,
+    household = models.ForeignKey(
+        Household,
         on_delete=models.CASCADE,
         related_name="categories",
         null=True,
-        verbose_name="Utilisateur associé",
+        blank=True,
+        verbose_name="Foyer associé",
     )
     name = models.CharField(max_length=100, verbose_name="Nom de la catégorie")
-    default_bank_account = models.ForeignKey(
-        BankAccount,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="default_for_categories",
-        verbose_name="Compte par défaut pour la catégorie",
+    type = models.CharField(
+        max_length=20,
+        choices=CategoryType.choices,
+        default=CategoryType.VARIABLE,
+        verbose_name="Type de catégorie",
     )
-    is_income = models.BooleanField(default=False, verbose_name="Catégorie de revenu")
     is_meal_voucher_eligible = models.BooleanField(
         default=False, verbose_name="Éligible aux Tickets Resto"
     )
@@ -33,10 +38,13 @@ class Category(BaseModel, SoftDeleteModel):
     def clean(self) -> None:
         super().clean()
 
-        # Règle métier : Un revenu ne peut pas être éligible aux Tickets Resto
-        if self.is_income and self.is_meal_voucher_eligible:
+        # Règle métier : Un revenu ou une épargne ne peut pas être éligible aux Tickets Resto
+        if (
+            self.type in [CategoryType.INCOME, CategoryType.SAVING]
+            and self.is_meal_voucher_eligible
+        ):
             raise ValidationError(
-                "Une catégorie de type revenu ne peut pas être éligible aux tickets resto"
+                "Un revenu ou une épargne ne peut pas être éligible aux tickets resto."
             )
 
     def save(self, *args, **kwargs) -> None:

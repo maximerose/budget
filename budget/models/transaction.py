@@ -81,37 +81,35 @@ class Transaction(BaseModel):
         is_new = self._state.adding
 
         # Si la transaction existe déjà, on doit d'abord restaurer les anciens soldes
-        # pour éviter de fausser les comptes lors d'une modification.
         if not is_new:
             old_self = Transaction.objects.get(pk=self.pk)
-            # Restauration ancien compte principal
-            old_self.bank_account.current_balance += (
-                old_self.total_amount - old_self.meal_voucher_amount
-            )
+
+            if old_self.transaction_type == TransactionType.EXPENSE:
+                old_self.bank_account.current_balance += (
+                    old_self.total_amount - old_self.meal_voucher_amount
+                )
+                if (
+                    old_self.meal_voucher_amount > 0
+                    and hasattr(old_self, "meal_voucher_bank_account")
+                    and old_self.meal_voucher_bank_account
+                ):
+                    old_self.meal_voucher_bank_account.current_balance += (
+                        old_self.meal_voucher_amount
+                    )
+                    old_self.meal_voucher_bank_account.save(
+                        update_fields=["current_balance"]
+                    )
+            elif old_self.transaction_type == TransactionType.INCOME:
+                old_self.bank_account.current_balance -= old_self.total_amount
+
             old_self.bank_account.save(update_fields=["current_balance"])
-            # Restauration ancien compte TR si présent
-            if (
-                old_self.meal_voucher_amount > 0
-                and hasattr(old_self, "meal_voucher_bank_account")
-                and old_self.meal_voucher_bank_account
-            ):
-                old_self.meal_voucher_bank_account.current_balance += (
-                    old_self.meal_voucher_amount
-                )
-                old_self.meal_voucher_bank_account.save(
-                    update_fields=["current_balance"]
-                )
 
         super().save(*args, **kwargs)
 
-        # Application des nouveaux débits sur les comptes
+        # Application des nouveaux montants sur les comptes
         if self.transaction_type == TransactionType.EXPENSE:
-            # Débit du compte principal (Total - TR)
             cash_amount = self.total_amount - self.meal_voucher_amount
             self.bank_account.current_balance -= cash_amount
-            self.bank_account.save(update_fields=["current_balance"])
-
-            # Débit du compte TR si un montant TR et un compte TR sont associés
             if (
                 self.meal_voucher_amount > 0
                 and hasattr(self, "meal_voucher_bank_account")
@@ -121,6 +119,10 @@ class Transaction(BaseModel):
                     self.meal_voucher_amount
                 )
                 self.meal_voucher_bank_account.save(update_fields=["current_balance"])
+        elif self.transaction_type == TransactionType.INCOME:
+            self.bank_account.current_balance += self.total_amount
+
+        self.bank_account.save(update_fields=["current_balance"])
 
     class Meta(BaseModel.Meta):
         verbose_name = "Transaction"

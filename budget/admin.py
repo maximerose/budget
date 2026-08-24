@@ -6,7 +6,6 @@ from budget.models import (
     Category,
     HouseholdMember,
     MonthlyForecast,
-    MonthlyForecastShare,
     RecurringExpense,
     RecurringExpenseShare,
     Transaction,
@@ -42,7 +41,6 @@ class CategoryAdmin(admin.ModelAdmin):
 admin.site.register(RecurringExpense)
 admin.site.register(RecurringExpenseShare)
 admin.site.register(MonthlyForecast)
-admin.site.register(MonthlyForecastShare)
 admin.site.register(Transaction)
 admin.site.register(Transfer)
 admin.site.register(AccountSnapshot)

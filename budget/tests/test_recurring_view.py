@@ -3,15 +3,18 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
-from budget.models.account import AccountType, BankAccount, HouseholdMember
-from budget.models.category import Category
+from budget.models.account import AccountType, BankAccount, Household, HouseholdMember
+from budget.models.category import Category, CategoryType
 from budget.models.recurring import RecurringExpense
 from budget.models.transaction import Transaction
 
 
 class RecurringViewTestCase(TestCase):
     def setUp(self) -> None:
-        self.member = HouseholdMember.objects.create(name="Maxime")
+        self.household = Household.objects.create(name="Foyer Test")
+        self.member = HouseholdMember.objects.create(
+            name="Maxime", household=self.household
+        )
 
         self.account = BankAccount.objects.create(
             name="Compte Courant",
@@ -22,8 +25,8 @@ class RecurringViewTestCase(TestCase):
 
         self.category = Category.objects.create(
             name="Abonnements",
-            is_income=False,
-            owner=self.member,
+            type=CategoryType.RECURRING,
+            household=self.household,
         )
 
         self.expense = RecurringExpense.objects.create(
@@ -33,10 +36,7 @@ class RecurringViewTestCase(TestCase):
             default_bank_account=self.account,
         )
 
-    # --- TESTS DU PAIEMENT DES CHARGES RÉCURRENTES ---
-
     def test_pay_recurring_expense_get(self) -> None:
-        """Vérifie que la modale de paiement des charges s'affiche bien."""
         url = reverse("pay_recurring_expense", args=[self.expense.id])
         response = self.client.get(url)
 
@@ -47,7 +47,6 @@ class RecurringViewTestCase(TestCase):
         self.assertEqual(response.context["expense"], self.expense)
 
     def test_pay_recurring_expense_post(self) -> None:
-        """Vérifie que le paiement partiel ou total génère la bonne transaction et rafraîchit HTMX."""
         url = reverse("pay_recurring_expense", args=[self.expense.id])
         data = {
             "amount": "30.00",
@@ -56,11 +55,9 @@ class RecurringViewTestCase(TestCase):
 
         response = self.client.post(url, data)
 
-        # 1. Vérifications HTMX
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers.get("HX-Refresh"), "true")
 
-        # 2. Vérification de la création de la transaction
         self.assertEqual(Transaction.objects.count(), 1)
         tx = Transaction.objects.first()
         self.assertEqual(tx.total_amount, Decimal("30.00"))

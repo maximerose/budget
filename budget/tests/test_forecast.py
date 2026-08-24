@@ -10,68 +10,73 @@ from budget.models import (
     Category,
     HouseholdMember,
     MonthlyForecast,
-    MonthlyForecastShare,
 )
+from budget.models.account import Household
+from budget.models.category import CategoryType
 
 
 class MonthlyForecastTestCase(TestCase):
     def setUp(self) -> None:
-        self.member = HouseholdMember.objects.create(name="Maxime")
-        self.joint_account = BankAccount.objects.create(
-            name="Compte joint",
-            account_type=AccountType.CHECKING,
-            owner=self.member,
-            current_balance=Decimal("2000.00"),
+        self.household = Household.objects.create(name="Foyer Test")
+        self.member = HouseholdMember.objects.create(
+            name="Maxime", household=self.household
         )
         self.checking_account = BankAccount.objects.create(
             name="Compte courant",
             account_type=AccountType.CHECKING,
             owner=self.member,
-            current_balance=Decimal("1000.00"),
         )
         self.category = Category.objects.create(
             name="Courses",
-            default_bank_account=self.joint_account,
-            owner=self.member,
+            type=CategoryType.VARIABLE,
+            household=self.household,
         )
         self.today = timezone.localdate().replace(day=1)
 
-    def test_category_default_bank_account(self) -> None:
-        self.assertEqual(self.category.default_bank_account, self.joint_account)
-
-    def test_forecast_creation_and_remaining_amount(self) -> None:
+    def test_forecast_creation_and_amount(self) -> None:
+        """Vérifie la création simple d'une enveloppe budgétaire."""
         forecast = MonthlyForecast.objects.create(
             month=self.today,
             category=self.category,
             member=self.member,
-            total_amount=Decimal("300.00"),
+            amount=Decimal("300.00"),
         )
-        self.assertEqual(forecast.get_remaining_amount_to_split(), Decimal("300.00"))
+        self.assertEqual(forecast.amount, Decimal("300.00"))
 
-        MonthlyForecastShare.objects.create(
-            forecast=forecast,
-            bank_account=self.category.default_bank_account,
-            amount=Decimal("200.00"),
-        )
-        self.assertEqual(forecast.get_remaining_amount_to_split(), Decimal("100.00"))
-
-    def test_share_validation_cannot_exceed_total_amount(self) -> None:
-        forecast = MonthlyForecast.objects.create(
+    def test_forecast_validation_rules(self) -> None:
+        """Vérifie la contrainte d'exclusivité entre Catégorie et Compte bancaire."""
+        # 1. Valide : Prévision sur une catégorie (Dépense / Revenu)
+        forecast_cat = MonthlyForecast(
             month=self.today,
-            category=self.category,
             member=self.member,
-            total_amount=Decimal("300.00"),
+            category=self.category,
+            amount=Decimal("300.00"),
         )
-        MonthlyForecastShare.objects.create(
-            forecast=forecast,
-            bank_account=self.joint_account,
-            amount=Decimal("200.00"),
-        )
+        forecast_cat.full_clean()
 
-        invalid_share = MonthlyForecastShare(
-            forecast=forecast,
+        # 2. Valide : Prévision sur un Compte Bancaire (Épargne)
+        forecast_acc = MonthlyForecast(
+            month=self.today,
+            member=self.member,
             bank_account=self.checking_account,
             amount=Decimal("150.00"),
         )
+        forecast_acc.full_clean()
+
+        # 3. Invalide : Aucun des deux
+        forecast_empty = MonthlyForecast(
+            month=self.today, member=self.member, amount=Decimal("100.00")
+        )
         with self.assertRaises(ValidationError):
-            invalid_share.full_clean()
+            forecast_empty.full_clean()
+
+        # 4. Invalide : Les deux renseignés
+        forecast_both = MonthlyForecast(
+            month=self.today,
+            member=self.member,
+            category=self.category,
+            bank_account=self.checking_account,
+            amount=Decimal("100.00"),
+        )
+        with self.assertRaises(ValidationError):
+            forecast_both.full_clean()
