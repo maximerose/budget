@@ -1,14 +1,19 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
 from budget.models.account import AccountType, BankAccount, HouseholdMember
 
+User = get_user_model()
+
 
 class DashboardViewsTestCase(TestCase):
     def setUp(self) -> None:
-        self.member = HouseholdMember.objects.create(name="Maxime")
+        self.user = User.objects.create_user(username="maxime", password="password123")
+        self.member = HouseholdMember.objects.create(name="Maxime", user=self.user)
+        self.client.force_login(self.user)
 
         self.account = BankAccount.objects.create(
             name="Compte Courant",

@@ -1,0 +1,30 @@
+{% extends "registration/base_auth.html" %}
+
+{% block title %}Connexion | Mon Budget{% endblock %}
+
+{% block auth_content %}
+
+  {% include "budget/components/heading.html" with title="Connexion" subtitle="Ravi de te revoir 👋" %}
+
+  <form method="post" class="space-y-5 mt-6">
+    {% csrf_token %}
+
+    {% if form.errors %}
+      <div class="p-3 bg-action-danger/10 border border-action-danger/30 text-action-danger rounded-xl text-sm">
+        Nom d'utilisateur ou mot de passe incorrect.
+      </div>
+    {% endif %}
+
+    {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" required=True autofocus=True %}
+    {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" required=True %}
+
+    <div class="pt-4">
+      {% include "budget/components/button.html" with label="Se connecter" variant="primary" type="submit" %}
+    </div>
+
+  </form>
+
+  <p class="text-center text-sm text-slate-400 mt-6 pt-6 border-t border-brand-border/50">
+    Pas encore de compte ? <a href="{% url 'register' %}" class="text-brand hover:underline font-semibold">S'inscrire</a>
+  </p>
+{% endblock %}

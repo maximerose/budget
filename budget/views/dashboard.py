@@ -21,7 +21,10 @@ from budget.services.forecast import (
 
 
 def dashboard_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(is_active=True).first()
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
 
     if not member:
         return redirect("/login/")
@@ -94,8 +97,11 @@ def dashboard_view(request: Request) -> HttpResponse:
 
 
 def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpResponse:
+    if not request.user.is_authenticated:
+        return HttpResponse("Non autorisé", status=401)
+
     expense = get_object_or_404(RecurringExpense, id=expense_id)
-    member = HouseholdMember.objects.filter(is_active=True).first()
+    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
     today = timezone.localdate()
 
     # Récupération des comptes via la relation owner

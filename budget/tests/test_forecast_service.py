@@ -81,6 +81,7 @@ class ForecastServiceTestCase(TestCase):
             label="Loyer",
             total_amount=Decimal("600.00"),
             category=self.cat_housing,
+            household=self.household,
         )
         RecurringExpenseShare.objects.create(
             recurring_expense=rent,
@@ -184,6 +185,7 @@ class ForecastServiceTestCase(TestCase):
             label="Loyer",
             total_amount=Decimal("600.00"),
             category=self.cat_housing,
+            household=self.household,
         )
         RecurringExpenseShare.objects.create(
             recurring_expense=rent,
@@ -237,6 +239,7 @@ class ForecastServiceTestCase(TestCase):
             label="Loyer",
             total_amount=Decimal("600.00"),
             category=self.cat_housing,
+            household=self.household,
         )
         RecurringExpenseShare.objects.create(
             recurring_expense=rent,
@@ -280,6 +283,7 @@ class ForecastServiceTestCase(TestCase):
             total_amount=Decimal("40.00"),
             category=self.cat_housing,
             default_bank_account=self.checking_account,
+            household=self.household,
         )
 
         steps = calculate_monthly_projected_balances(self.member, self.today)
@@ -298,6 +302,7 @@ class ForecastServiceTestCase(TestCase):
             label="Loyer",
             total_amount=Decimal("1000.00"),
             category=self.cat_housing,
+            household=self.household,
         )
         # Part théorique de 500€ (soit 50% de la charge globale)
         RecurringExpenseShare.objects.create(
@@ -321,6 +326,6 @@ class ForecastServiceTestCase(TestCase):
             steps["after_recurring"][self.checking_account.id], Decimal("900.00")
         )
 
-        # 2. Test des statuts (l'interface doit afficher 600€ attendus)
+        # 2. Test des statuts (l'interface doit afficher la charge Globale du foyer)
         status_list = get_recurring_expenses_with_status(self.member, self.today)
-        self.assertEqual(status_list[0]["expected_amount"], Decimal("600.00"))
+        self.assertEqual(status_list[0]["expected_amount"], Decimal("1200.00"))

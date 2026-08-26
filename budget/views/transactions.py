@@ -43,8 +43,13 @@ def adjust_account_balance_view(
 
 
 def quick_expense_form_view(request: Request) -> HttpResponse:
+    if not request.user.is_authenticated:
+        return HttpResponse("Non autorisé", status=401)
+
     # Pour l'instant, on récupère le premier membre actif (ou celui de la session)
-    current_member = HouseholdMember.objects.filter(is_active=True).first()
+    current_member = HouseholdMember.objects.filter(
+        user=request.user, is_active=True
+    ).first()
 
     if request.method == "POST":
         total_amount = Decimal(request.POST.get("total_amount", "0.00"))

@@ -26,6 +26,11 @@ class MonthlyForecastTestCase(TestCase):
             account_type=AccountType.CHECKING,
             owner=self.member,
         )
+        self.savings_account = BankAccount.objects.create(
+            name="Livret A",
+            account_type=AccountType.SAVINGS,
+            owner=self.member,
+        )
         self.category = Category.objects.create(
             name="Courses",
             type=CategoryType.VARIABLE,
@@ -58,7 +63,7 @@ class MonthlyForecastTestCase(TestCase):
         forecast_acc = MonthlyForecast(
             month=self.today,
             member=self.member,
-            bank_account=self.checking_account,
+            bank_account=self.savings_account,
             amount=Decimal("150.00"),
         )
         forecast_acc.full_clean()

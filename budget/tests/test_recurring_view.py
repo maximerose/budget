@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -8,13 +9,17 @@ from budget.models.category import Category, CategoryType
 from budget.models.recurring import RecurringExpense
 from budget.models.transaction import Transaction
 
+User = get_user_model()
+
 
 class RecurringViewTestCase(TestCase):
     def setUp(self) -> None:
+        self.user = User.objects.create_user(username="maxime", password="password123")
         self.household = Household.objects.create(name="Foyer Test")
         self.member = HouseholdMember.objects.create(
-            name="Maxime", household=self.household
+            name="Maxime", household=self.household, user=self.user
         )
+        self.client.force_login(self.user)
 
         self.account = BankAccount.objects.create(
             name="Compte Courant",

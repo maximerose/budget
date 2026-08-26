@@ -1,0 +1,35 @@
+{% extends "registration/base_auth.html" %}
+{% block title %}Inscription | Mon Budget{% endblock %}
+{% block auth_content %}
+  {% include "budget/components/heading.html" with title="Inscription" subtitle="Crée ton foyer en quelques secondes 🚀" %}
+  <form method="post" class="space-y-4 mt-6">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="p-3 bg-action-danger/10 border border-action-danger/30 text-action-danger rounded-xl text-sm mb-4">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+    {% endif %}
+    <div>
+      {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" value=form.username.value|default_if_none:"" required=True autofocus=True %}
+      {% if form.username.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.username.errors.0 }}</p>{% endif %}
+    </div>
+    <div>
+      {% include "budget/components/input.html" with label="Email" type="email" name="email" value=form.email.value|default_if_none:"" required=True %}
+      {% if form.email.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.email.errors.0 }}</p>{% endif %}
+    </div>
+    <div>
+      {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" required=True %}
+      {% if form.password.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.password.errors.0 }}</p>{% endif %}
+    </div>
+    <div>
+      {% include "budget/components/input.html" with label="Confirmer le mot de passe" type="password" name="password_confirm" required=True %}
+      {% if form.password_confirm.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.password_confirm.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="pt-4">
+      {% include "budget/components/button.html" with label="Créer mon compte" variant="primary" type="submit" %}
+    </div>
+  </form>
+  <p class="text-center text-sm text-slate-400 mt-6 pt-6 border-t border-brand-border/50">
+    Déjà un compte ? <a href="{% url 'login' %}" class="text-brand hover:underline font-semibold">Se connecter</a>
+  </p>
+{% endblock %}

@@ -122,3 +122,15 @@ MAILERS = {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+# Authentication
+LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/login/"
+LOGOUT_REDIRECT_URL = "/login"
+
+# --- Sessions (Maintien de la connexion) ---
+# La session expire au bout de 30 jours (en secondes : 30 * 24 * 60 * 60)
+SESSION_COOKIE_AGE = 2592000
+
+# La session persiste même si l'utilisateur ferme complètement son navigateur
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
