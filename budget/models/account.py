@@ -1,3 +1,5 @@
+import datetime
+import uuid
 from decimal import Decimal
 from typing import ClassVar
 
@@ -58,6 +60,44 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
         verbose_name = "Membre du foyer"
         verbose_name_plural = "Membres du foyer"
         ordering: ClassVar[list[str]] = ["name"]
+
+
+class HouseholdInvitation(BaseModel):
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name="invitations",
+        verbose_name="Foyer",
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4(),
+        editable=False,
+        unique=True,
+        verbose_name="Jeton unique",
+    )
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accepted_invitations",
+        verbose_name="Accepté par",
+    )
+
+    @property
+    def is_valid(self) -> bool:
+        """Une invitation est valide 48h et si elle n'a pas encore été acceptée."""
+        if self.accepted_by is not None:
+            return False
+
+        expiration_date = self.created_at + datetime.timedelta(hours=48)
+
+        return timezone.now() <= expiration_date
+
+    def __str__(self) -> str:
+        status = "Acceptée" if self.accepted_by else "En attente"
+
+        return f"Invitation pour {self.household.name} ({status})"
 
 
 class AccountType(models.TextChoices):
