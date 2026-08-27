@@ -1,11 +1,25 @@
 import calendar
 import datetime
 from decimal import Decimal
+from functools import wraps
 
 from django.db.models.aggregates import Sum
+from django.http import HttpResponse
 
 from budget.models.account import AccountType
 from budget.models.transaction import Transaction
+
+
+def htmx_login_required(view_func):
+    """Décorateur pour bloquer l'accès aux vues HTMX si non connecté."""
+
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return HttpResponse("Non autorisé", status=401)
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
 
 
 def calculate_budget_month(

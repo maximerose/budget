@@ -6,10 +6,18 @@
         {% if placeholder %}
             <option value="" disabled selected>{{ placeholder }}</option>
         {% endif %}
+
         {% for item in options %}
-            <option value="{{ item.id }}" {% if item.id|slugify == selected|slugify %}selected{% endif %}>{{ item.name }}</option>
+            {% if item.name %}
+                <!-- Cas 1 : Objet de base de données ou Dictionnaire (ex: item.id / item.name) -->
+                <option value="{{ item.id }}" {% if item.id|slugify == selected|slugify %}selected{% endif %}>{{ item.name }}</option>
+            {% else %}
+                <!-- Cas 2 : Tuple Django Choices (ex: item.0 / item.1) -->
+                <option value="{{ item.0 }}" {% if item.0|slugify == selected|slugify %}selected{% endif %}>{{ item.1 }}</option>
+            {% endif %}
         {% endfor %}
     </select>
+
     {% if help_text %}
         <p class="text-[11px] text-slate-500">{{ help_text }}</p>
     {% endif %}

@@ -15,8 +15,10 @@ from budget.models import (
 )
 from budget.models.account import Visibility
 from budget.models.category import CategoryType
+from budget.utils import htmx_login_required
 
 
+@htmx_login_required
 def adjust_account_balance_view(
     request: Request, account_id: str
 ) -> HttpResponse | None:
@@ -42,10 +44,8 @@ def adjust_account_balance_view(
     )
 
 
+@htmx_login_required
 def quick_expense_form_view(request: Request) -> HttpResponse:
-    if not request.user.is_authenticated:
-        return HttpResponse("Non autorisé", status=401)
-
     # Pour l'instant, on récupère le premier membre actif (ou celui de la session)
     current_member = HouseholdMember.objects.filter(
         user=request.user, is_active=True

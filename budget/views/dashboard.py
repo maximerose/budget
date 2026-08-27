@@ -1,6 +1,7 @@
 from decimal import Decimal
 from urllib.request import Request
 
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.db.models.aggregates import Sum
 from django.http import HttpResponse
@@ -18,12 +19,11 @@ from budget.services.forecast import (
     get_recurring_expenses_with_status,
     get_target_account_for_expense,
 )
+from budget.utils import htmx_login_required
 
 
+@login_required
 def dashboard_view(request: Request) -> HttpResponse:
-    if not request.user.is_authenticated:
-        return redirect("login")
-
     member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
 
     if not member:
@@ -96,10 +96,8 @@ def dashboard_view(request: Request) -> HttpResponse:
     )
 
 
+@htmx_login_required
 def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpResponse:
-    if not request.user.is_authenticated:
-        return HttpResponse("Non autorisé", status=401)
-
     expense = get_object_or_404(RecurringExpense, id=expense_id)
     member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
     today = timezone.localdate()

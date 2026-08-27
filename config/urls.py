@@ -3,6 +3,11 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from budget.views import dashboard_view, quick_expense_form_view
+from budget.views.accounts import (
+    settings_account_delete_view,
+    settings_account_form_view,
+    settings_accounts_list_view,
+)
 from budget.views.auth import join_household_view, register_view
 from budget.views.dashboard import pay_recurring_expense_view
 from budget.views.transactions import adjust_account_balance_view
@@ -30,5 +35,22 @@ urlpatterns = [
         "recurring/<str:expense_id>/pay/",
         pay_recurring_expense_view,
         name="pay_recurring_expense",
+    ),
+    # --- Paramètres & Configuration ---
+    path("settings/accounts/", settings_accounts_list_view, name="settings_accounts"),
+    path(
+        "settings/accounts/create/",
+        settings_account_form_view,
+        name="settings_account_create",
+    ),
+    path(
+        "settings/accounts/<uuid:account_id>/update/",
+        settings_account_form_view,
+        name="settings_account_update",
+    ),
+    path(
+        "settings/accounts/<uuid:account_id>/delete/",
+        settings_account_delete_view,
+        name="settings_account_delete",
     ),
 ]
