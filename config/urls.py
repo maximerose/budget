@@ -9,6 +9,11 @@ from budget.views.accounts import (
     settings_accounts_list_view,
 )
 from budget.views.auth import join_household_view, register_view
+from budget.views.categories import (
+    settings_categories_list_view,
+    settings_category_delete_view,
+    settings_category_form_view,
+)
 from budget.views.dashboard import pay_recurring_expense_view
 from budget.views.transactions import adjust_account_balance_view
 
@@ -52,5 +57,25 @@ urlpatterns = [
         "settings/accounts/<uuid:account_id>/delete/",
         settings_account_delete_view,
         name="settings_account_delete",
+    ),
+    path(
+        "settings/categories/",
+        settings_categories_list_view,
+        name="settings_categories",
+    ),
+    path(
+        "settings/categories/create/",
+        settings_category_form_view,
+        name="settings_category_create",
+    ),
+    path(
+        "settings/categories/<uuid:category_id>/update/",
+        settings_category_form_view,
+        name="settings_category_update",
+    ),
+    path(
+        "settings/categories/<uuid:category_id>/delete/",
+        settings_category_delete_view,
+        name="settings_category_delete",
     ),
 ]

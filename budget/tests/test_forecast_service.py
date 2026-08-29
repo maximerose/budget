@@ -72,7 +72,7 @@ class ForecastServiceTestCase(TestCase):
         )
         self.cat_savings = Category.objects.create(
             name="Intérêts ou Plum",
-            type=CategoryType.SAVING,
+            type=CategoryType.SAVINGS,
             household=self.household,
         )
 

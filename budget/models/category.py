@@ -2,6 +2,7 @@ from typing import ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Case, Value, When
 
 from budget.models.account import BankAccount, Household
 from core.models import BaseModel, SoftDeleteModel
@@ -10,7 +11,7 @@ from core.models import BaseModel, SoftDeleteModel
 class CategoryType(models.TextChoices):
     RECURRING = "RECURRING", "Charge fixe"
     VARIABLE = "VARIABLE", "Charge variable"
-    SAVING = "SAVING", "Épargne"
+    SAVINGS = "SAVINGS", "Épargne"
     INCOME = "INCOME", "Revenu"
 
 
@@ -50,7 +51,7 @@ class Category(BaseModel, SoftDeleteModel):
 
         # Règle métier : Un revenu ou une épargne ne peut pas être éligible aux Tickets Resto
         if (
-            self.type in [CategoryType.INCOME, CategoryType.SAVING]
+            self.type in [CategoryType.INCOME, CategoryType.SAVINGS]
             and self.is_meal_voucher_eligible
         ):
             raise ValidationError(
@@ -65,4 +66,13 @@ class Category(BaseModel, SoftDeleteModel):
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Catégorie"
         verbose_name_plural = "Catégories"
-        ordering: ClassVar[list[str]] = ["name"]
+        ordering: ClassVar[list] = [
+            Case(
+                When(type=CategoryType.RECURRING, then=Value(1)),
+                When(type=CategoryType.VARIABLE, then=Value(2)),
+                When(type=CategoryType.SAVINGS, then=Value(3)),
+                When(type=CategoryType.INCOME, then=Value(4)),
+                default=Value(5),
+            ),
+            "name",
+        ]

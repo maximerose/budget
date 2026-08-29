@@ -6,23 +6,32 @@
   <div class="space-y-6 mb-16 md:mb-0">
 
     <!-- En-tête de la page -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      {% include "budget/components/heading.html" with level="1" title="Comptes bancaires" subtitle="Gère les comptes de ton foyer." %}
-
-      <div class="w-full sm:w-auto">
-        {% include "budget/components/button.html" with label="+ Nouveau Compte" variant="primary" hx_get="/settings/accounts/create/" hx_target="#modal-container" %}
-      </div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+      {% include "budget/components/heading.html" with level="1" title="Paramètres" subtitle="Gère ton foyer, tes comptes et tes catégories." %}
     </div>
+
+    <!-- Navigation des paramètres -->
+    {% include "budget/partials/settings/_settings_nav.html" with active_tab="accounts" %}
 
     <!-- Liste des comptes -->
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
       {% for account in accounts %}
         {% include "budget/partials/accounts/_account_card.html" with account=account view_context="settings" %}
-      {% empty %}
-        <div class="col-span-full">
-          {% include "budget/partials/shared/_empty_state.html" with message="Aucun compte configuré. Commence par en ajouter un !" %}
-        </div>
       {% endfor %}
+
+      <!-- Carte d'ajout -->
+      <button hx-get="{% url 'settings_account_create' %}"
+              hx-target="#modal-container"
+              class="group bg-transparent border-2 border-dashed border-brand-border hover:border-brand hover:bg-brand/5 p-5 rounded-card transition-all flex flex-col items-center justify-center min-h-[180px] cursor-pointer">
+        <div class="w-12 h-12 bg-slate-800 group-hover:bg-brand text-slate-400 group-hover:text-brand-dark rounded-full flex items-center justify-center transition-colors mb-3 shadow-sm">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <span class="text-sm font-bold text-slate-400 group-hover:text-brand transition-colors">Ajouter un compte</span>
+      </button>
+
     </div>
   </div>
 {% endblock %}

@@ -1,0 +1,18 @@
+<nav class="flex overflow-x-auto gap-6 border-b border-brand-border/60 mb-6 scrollbar-hide">
+  <a href="{% url 'settings_accounts' %}" 
+     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap {% if active_tab == 'accounts' %}text-brand border-b-2 border-brand{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+    Comptes bancaires
+  </a>
+  <a href="{% url 'settings_categories' %}" 
+     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap {% if active_tab == 'categories' %}text-brand border-b-2 border-brand{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+    Catégories
+  </a>
+  <a href="#" 
+     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap text-slate-400 hover:text-slate-200">
+    Charges fixes
+  </a>
+  <a href="#" 
+     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap text-slate-400 hover:text-slate-200">
+    Foyer & Profil
+  </a>
+</nav>

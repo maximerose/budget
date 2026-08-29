@@ -63,14 +63,16 @@
       </nav>
 
       <!-- Bouton Flottant (FAB) -->
-      <button hx-get="{% url 'quick_expense_form' %}"
-              hx-target="#modal-container"
-              hx-swap="innerHTML"
-              class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6" />
-        </svg>
-      </button>
+      {% if request.resolver_match.url_name == 'dashboard' %}
+        <button hx-get="{% url 'quick_expense_form' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML"
+                class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6" />
+          </svg>
+        </button>
+      {% endif %}
     {% endif %}
 
     <!-- Conteneur pour Modales -->

@@ -75,7 +75,7 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
     # On filtre les catégories et les comptes liés au FOYER (exclusion des revenus/épargne)
     categories = Category.objects.filter(
         is_active=True, household=current_member.household
-    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVING])
+    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
 
     accounts = BankAccount.objects.filter(
         Q(owner=current_member)
