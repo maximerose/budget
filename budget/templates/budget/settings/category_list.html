@@ -50,7 +50,12 @@
                       {% else %}
                         Prélevé sur :
                       {% endif %}
-                      <span class="text-slate-300 font-medium">{{ category.default_bank_account.name }}</span>
+                      <span class="text-slate-300 font-medium">
+                        {{ category.default_bank_account.name }}
+                        {% if category.default_bank_account.owner.id != member.id %}
+                          <span class="text-[10px] opacity-70">({{ category.default_bank_account.owner.name }})</span>
+                        {% endif %}
+                      </span>
                     </p>
                   {% else %}
                     <p class="text-[11px] text-slate-500 mt-1 italic">Aucun compte par défaut</p>
@@ -58,15 +63,15 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="flex items-center gap-2 sm:shrink-0">
+                <div class="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-brand-border/40">
                   <button hx-get="{% url 'settings_category_update' category.id %}"
                           hx-target="#modal-container"
-                          class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
+                          class="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
                     Modifier
                   </button>
                   <button hx-post="{% url 'settings_category_delete' category.id %}"
                           hx-confirm="Êtes-vous sûr de vouloir supprimer cette catégorie ?"
-                          class="px-3 py-1.5 bg-action-danger/10 hover:bg-action-danger/20 text-action-danger text-xs font-semibold rounded-lg transition-colors cursor-pointer">
+                          class="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-action-danger/10 hover:bg-action-danger/20 text-action-danger text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
                     Supprimer
                   </button>
                 </div>

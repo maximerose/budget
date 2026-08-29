@@ -15,6 +15,13 @@ from budget.views.categories import (
     settings_category_form_view,
 )
 from budget.views.dashboard import pay_recurring_expense_view
+from budget.views.recurring import (
+    settings_recurring_delete_view,
+    settings_recurring_form_view,
+    settings_recurring_list_view,
+    settings_recurring_share_delete_view,
+    settings_recurring_shares_view,
+)
 from budget.views.transactions import adjust_account_balance_view
 
 urlpatterns = [
@@ -77,5 +84,35 @@ urlpatterns = [
         "settings/categories/<uuid:category_id>/delete/",
         settings_category_delete_view,
         name="settings_category_delete",
+    ),
+    path(
+        "settings/recurring/",
+        settings_recurring_list_view,
+        name="settings_recurring",
+    ),
+    path(
+        "settings/recurring/create/",
+        settings_recurring_form_view,
+        name="settings_recurring_create",
+    ),
+    path(
+        "settings/recurring/<uuid:expense_id>/update/",
+        settings_recurring_form_view,
+        name="settings_recurring_update",
+    ),
+    path(
+        "settings/recurring/<uuid:expense_id>/delete/",
+        settings_recurring_delete_view,
+        name="settings_recurring_delete",
+    ),
+    path(
+        "settings/recurring/<uuid:expense_id>/shares/",
+        settings_recurring_shares_view,
+        name="settings_recurring_shares",
+    ),
+    path(
+        "settings/recurring/<uuid:expense_id>/shares/<uuid:share_id>/delete/",
+        settings_recurring_share_delete_view,
+        name="settings_recurring_share_delete",
     ),
 ]

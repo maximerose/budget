@@ -41,6 +41,44 @@
   --shadow-card-glow: 0 4px 20px -2px rgba(16, 185, 129, 0.08);
 }
 
+@layer base {
+  /* Style global des scrollbars (Firefox) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-700) transparent;
+  }
+
+  /* Style global des scrollbars (Chrome, Edge, Safari) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-slate-700);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-slate-500);
+  }
+}
+
+@layer utilities {
+  /* Classe utilitaire pour masquer complètement la scrollbar (ex: navigation horizontale) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
 /* Utilitaires réutilisables pour le projet */
 @utility input-base {
   width: 100%;

@@ -6,38 +6,60 @@
   </div>
   <div class="divide-y divide-brand-border">
     {% for item in recurring_expenses %}
-      <div class="py-3 flex items-center justify-between">
-        <div>
-          <p class="text-sm font-semibold text-slate-200">{{ item.expense.label }}</p>
-          <p class="text-xs text-slate-500">{{ item.bank_account_name }}</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="text-right">
-            {% if item.realized_amount > 0 %}
-              {% include "budget/components/amount.html" with amount=item.realized_amount custom_class="text-sm block" %}
-              <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">sur {{ item.expected_amount|floatformat:2 }} €</span>
+      <!-- Bloc principal -->
+      <div class="py-3 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-slate-200">{{ item.expense.label }}</p>
+            <p class="text-xs text-slate-500">{{ item.bank_account_name }}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              {% if item.realized_amount > 0 %}
+                {% include "budget/components/amount.html" with amount=item.realized_amount custom_class="text-sm block" %}
+                <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">sur {{ item.expected_amount|floatformat:2 }} €</span>
+              {% else %}
+                <span class="text-sm font-bold text-slate-100">{{ item.expected_amount|floatformat:2 }} €</span>
+              {% endif %}
+            </div>
+            {% if item.status == 'COMPLETED' %}
+              {% include "budget/components/badge.html" with text="Soldé" variant="success" %}
+            {% elif item.status == 'PARTIAL' %}
+              {% include "budget/components/badge.html" with text="Partiel" variant="warning" %}
+              <!-- Si c'est partiel ET qu'il reste à payer MA part, j'affiche le bouton Payer -->
+              {% if item.my_remaining > 0 %}
+                <button hx-get="{% url 'pay_recurring_expense' item.expense.id %}"
+                        hx-target="#modal-container"
+                        class="px-3 py-1 bg-action-primary hover:bg-action-primary-hover text-brand-dark text-xs font-bold rounded-lg transition-all cursor-pointer">
+                  Payer
+                </button>
+              {% endif %}
             {% else %}
-              <span class="text-sm font-bold text-slate-100">{{ item.expected_amount|floatformat:2 }} €</span>
+              <button hx-get="{% url 'pay_recurring_expense' item.expense.id %}"
+                      hx-target="#modal-container"
+                      class="px-3 py-1 bg-action-primary hover:bg-action-primary-hover text-brand-dark text-xs font-bold rounded-lg transition-all cursor-pointer">
+                Payer
+              </button>
             {% endif %}
           </div>
-          {% if item.status == 'COMPLETED' %}
-            {% include "budget/components/badge.html" with text="Soldé" variant="success" %}
-          {% elif item.status == 'PARTIAL' %}
-            {% include "budget/components/badge.html" with text="Partiel" variant="warning" %}
-            <!-- On garde le bouton payer si c'est partiel -->
-            <button hx-get="{% url 'pay_recurring_expense' item.expense.id %}"
-                    hx-target="#modal-container"
-                    class="px-3 py-1 bg-action-primary hover:bg-action-primary-hover text-brand-dark text-xs font-bold rounded-lg transition-all cursor-pointer">
-              Payer le reste
-            </button>
-          {% else %}
-            <button hx-get="{% url 'pay_recurring_expense' item.expense.id %}"
-                    hx-target="#modal-container"
-                    class="px-3 py-1 bg-action-primary hover:bg-action-primary-hover text-brand-dark text-xs font-bold rounded-lg transition-all cursor-pointer">
-              Payer
-            </button>
-          {% endif %}
         </div>
+
+        <!-- Détail de l'historique pour les paiements partiels -->
+        {% if item.status == 'PARTIAL' and item.transactions %}
+          <div class="pl-3 border-l-2 border-brand-border/60 space-y-1 mt-1">
+            <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Déjà versé :</p>
+            {% for tx in item.transactions %}
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>{{ tx.transaction_date|date:"d F" }} via {{ tx.bank_account.owner.name }} ({{ tx.bank_account.name }})</span>
+                <span class="font-medium text-slate-300">{{ tx.total_amount|floatformat:2 }} €</span>
+              </div>
+            {% endfor %}
+            <div class="flex items-center justify-between text-xs font-bold pt-1 mt-1 border-t border-brand-border/40">
+              <span class="text-action-warning">Reste à charge Foyer</span>
+              <span class="text-action-warning">{{ item.global_remaining|floatformat:2 }} €</span>
+            </div>
+          </div>
+        {% endif %}
       </div>
     {% empty %}
       <p class="text-xs text-slate-500 py-2">Aucune charge fixe enregistrée.</p>

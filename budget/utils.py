@@ -68,3 +68,12 @@ def get_remaining_meal_voucher_ceiling(
     ] or Decimal("0.00")
 
     return max(Decimal("0.00"), limit - spent_today)
+
+
+def advance_date(start_date: datetime.date, months_to_add: int) -> datetime.date:
+    """Fait avancer une date d'un certain nombre de mois en gérant les fins de mois."""
+    month_zero_indexed = start_date.month - 1 + months_to_add
+    new_year = start_date.year + month_zero_indexed // 12
+    new_month = month_zero_indexed % 12 + 1
+    last_day = calendar.monthrange(new_year, new_month)[1]
+    return datetime.date(new_year, new_month, min(start_date.day, last_day))

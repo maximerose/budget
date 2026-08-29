@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from collections import defaultdict
 from decimal import Decimal
@@ -17,6 +18,7 @@ from budget.models.category import CategoryType
 from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense, RecurringExpenseStatus
 from budget.models.transaction import Transfer
+from budget.utils import advance_date
 
 
 def get_target_account_for_expense(
@@ -241,6 +243,7 @@ def get_recurring_expenses_with_status(
 ) -> list[dict]:
     household = member.household
     target_month = month.replace(day=1)
+    today = timezone.localdate()
 
     expenses = RecurringExpense.objects.filter(
         Q(owner=member)
@@ -260,16 +263,26 @@ def get_recurring_expenses_with_status(
         )
     }
 
+    # On récupère les comptes du membre pour savoir quelle est sa "vraie" part à payer
+    member_accounts_ids = list(
+        BankAccount.objects.filter(owner=member, is_active=True).values_list(
+            "id", flat=True
+        )
+    )
+
     results = []
     for expense in expenses:
         expected_total = recurring_overrides.get(expense.id, expense.total_amount)
 
-        realized = Transaction.objects.filter(
+        # On récupère toutes les transactions (pour avoir l'historique détaillé)
+        transactions = Transaction.objects.filter(
             recurring_expense=expense,
             budget_month__year=target_month.year,
             budget_month__month=target_month.month,
             transaction_type=TransactionType.EXPENSE,
-        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+        ).select_related("bank_account", "bank_account__owner")
+
+        realized = sum(t.total_amount for t in transactions) or Decimal("0.00")
 
         status = (
             RecurringExpenseStatus.WAITING
@@ -281,12 +294,57 @@ def get_recurring_expenses_with_status(
             )
         )
 
-        if expense.shares.exists():
+        # Calcul de la part attendue pour le membre connecté
+        my_expected_share = expected_total
+        shares = expense.shares.filter(is_active=True)
+        if shares.exists():
+            my_share = shares.filter(bank_account_id__in=member_accounts_ids).first()
+            if my_share:
+                ratio = (
+                    my_share.amount / expense.total_amount
+                    if expense.total_amount > Decimal("0.00")
+                    else Decimal("1.00")
+                )
+                my_expected_share = round(expected_total * ratio, 2)
+            else:
+                my_expected_share = Decimal(
+                    "0.00"
+                )  # Je n'ai pas de part sur cette charge
+
+        # Calcul de ce que le membre a déjà payé
+        my_realized = sum(
+            t.total_amount
+            for t in transactions
+            if t.bank_account_id in member_accounts_ids
+        ) or Decimal("0.00")
+
+        my_remaining = max(Decimal("0.00"), my_expected_share - my_realized)
+        global_remaining = max(Decimal("0.00"), expected_total - realized)
+
+        # --- Calcul intelligent de la prochaine échéance ---
+        next_date = None
+        is_overdue = False
+
+        if expense.usual_due_day:
+            next_date = expense.usual_due_day
+
+            while next_date.replace(day=1) < target_month:
+                next_date = advance_date(next_date, expense.frequency_months)
+
+            if (
+                next_date.year == target_month.year
+                and next_date.month == target_month.month
+            ):
+                if status == RecurringExpenseStatus.COMPLETED:
+                    next_date = advance_date(next_date, expense.frequency_months)
+                elif today > next_date:
+                    is_overdue = True
+
+        if shares.exists():
             account_name = "Multiples comptes"
         else:
             target_account = get_target_account_for_expense(expense, member)
             if target_account:
-                # Ajout du nom du propriétaire si ce n'est pas nous
                 if target_account.owner_id != member.id:
                     account_name = (
                         f"{target_account.name} ({target_account.owner.name})"
@@ -300,9 +358,15 @@ def get_recurring_expenses_with_status(
             {
                 "expense": expense,
                 "bank_account_name": account_name,
-                "expected_amount": expected_total,
-                "realized_amount": realized,
+                "expected_amount": expected_total,  # Total Foyer
+                "realized_amount": realized,  # Total payé par tout le Foyer
                 "status": status,
+                "next_date": next_date,
+                "is_overdue": is_overdue,
+                "my_expected_share": my_expected_share,  # Ma part théorique
+                "my_remaining": my_remaining,  # Ce qu'il ME reste à payer
+                "global_remaining": global_remaining,
+                "transactions": transactions,  # Historique pour l'UI
             }
         )
     return results

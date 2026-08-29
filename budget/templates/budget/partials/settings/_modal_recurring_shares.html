@@ -1,0 +1,61 @@
+<div class="space-y-6">
+
+  <!-- Répartitions actuelles -->
+  <div class="bg-slate-900/50 p-4 rounded-xl border border-brand-border">
+    <p class="text-sm font-semibold text-slate-200 mb-3">Parts actuelles</p>
+    <ul class="space-y-3">
+      {% for share in shares %}
+        <li class="flex justify-between items-center text-sm">
+          <span class="text-slate-300">{{ share.bank_account.name }} <span class="text-[10px] text-slate-500">({{ share.bank_account.owner.name }})</span></span>
+          <div class="flex items-center gap-3">
+            <span class="font-bold text-slate-100">{{ share.amount }} €</span>
+            <button hx-post="{% url 'settings_recurring_share_delete' expense.id share.id %}"
+                    hx-confirm="Supprimer cette part ?"
+                    class="text-slate-500 hover:text-action-danger transition-colors cursor-pointer"
+                    title="Supprimer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </li>
+      {% empty %}
+        <li class="text-xs text-slate-500 italic pb-2">Aucune répartition. La charge sera prélevée intégralement sur le compte par défaut.</li>
+      {% endfor %}
+    </ul>
+
+    <div class="mt-3 pt-3 border-t border-brand-border/50 flex justify-between items-center text-xs font-bold">
+      <span class="text-slate-400">Reste à répartir :</span>
+      <span class="{% if remaining > 0 %}text-action-warning{% else %}text-budget-income{% endif %}">{{ remaining|floatformat:2 }} €</span>
+    </div>
+  </div>
+
+  <!-- Formulaire pour ajouter une part -->
+  {% if remaining > 0 %}
+    <form hx-post="{% url 'settings_recurring_shares' expense.id %}"
+          hx-target="#modal-container"
+          hx-swap="innerHTML"
+          class="space-y-4">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="p-3 bg-action-danger/10 border border-action-danger/30 text-action-danger rounded-xl text-xs">{{ form.non_field_errors.0 }}</div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% include "budget/components/select.html" with label="Compte payeur" name="bank_account" options=account_options required=True %}
+        {% include "budget/components/input.html" with label="Montant (€)" type="number" step="0.01" name="amount" value=remaining|stringformat:".2f" required=True %}
+      </div>
+
+      <button type="submit"
+              class="w-full inline-flex items-center justify-center font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 text-sm cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200">
+        Ajouter cette part
+      </button>
+    </form>
+  {% else %}
+    <div class="p-3 bg-budget-income/10 border border-budget-income/30 text-budget-income rounded-xl text-sm text-center font-semibold">
+      La charge est entièrement répartie ! 🎉
+    </div>
+  {% endif %}
+
+</div>
