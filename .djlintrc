@@ -3,8 +3,9 @@
   "indent": 2,
   "preserve_blank_lines": true,
   "preserve_attribute_formatting": true,
-  "max_line_length": 0,
-  "max_attribute_length": 0,
+  "format_attribute_template_tags": false,
+  "max_line_length": 120,
+  "max_attribute_length": 120,
   "format_css": false,
   "format_js": false
 }

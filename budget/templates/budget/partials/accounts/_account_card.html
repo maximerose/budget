@@ -1,0 +1,76 @@
+{% extends "budget/components/card.html" %}
+
+{% block card_border %}
+  {% if account.owner.id != member.id %}border-dashed border-slate-600{% else %}border-brand-border{% endif %}
+{% endblock %}
+
+{% block card_classes %}
+  {% if account.owner.id != member.id %}opacity-80 bg-slate-900/40{% endif %}
+{% endblock %}
+
+{% block card_body %}
+  <!-- Header de la carte (Commun) -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <!-- djlint:off -->
+      {% include "budget/components/badge.html" with text=account.get_account_type_display variant=account.account_type|lower %}
+      <!-- djlint:on -->
+      {% if account.visibility == 'PRIVATE' %}
+        <span title="Compte Privé">🔒</span>
+      {% endif %}
+    </div>
+    {% if account.is_default %}
+      <span class="text-[10px] uppercase font-bold tracking-wider text-brand">Principal</span>
+    {% endif %}
+  </div>
+
+  <!-- Corps principal (Commun : Solde, Nom, Bouton Ajuster) -->
+  <div class="mt-4 flex items-end justify-between">
+    <div>
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">
+        {{ account.name }}
+        {% if account.owner.id != member.id %}
+          <span class="normal-case opacity-70">({{ account.owner.name }})</span>
+        {% endif %}
+      </p>
+      <p class="text-2xl font-bold text-slate-100 mt-1">
+        {% include "budget/components/amount.html" with amount=account.current_balance custom_class="text-lg" %}
+      </p>
+      <p class="text-[10px] text-slate-500 mt-0.5">Solde théorique estimé</p>
+    </div>
+
+    <!-- Bouton Ajuster le solde (Présent partout) -->
+    <button hx-get="{% url 'adjust_account_balance' account.id %}"
+            hx-target="#modal-container"
+            title="Ajuster le solde"
+            class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors text-xs flex items-center gap-1 cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Footer des Paramètres (Conditionnel) -->
+  {% if view_context == 'settings' %}
+    <div class="pt-4 mt-4 border-t border-brand-border/60">
+      {% if account.owner.id == member.id %}
+        <div class="flex items-center gap-2">
+          <button hx-get="{% url 'settings_account_update' account.id %}"
+                  hx-target="#modal-container"
+                  class="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
+            Paramétrer
+          </button>
+          <button hx-post="{% url 'settings_account_delete' account.id %}"
+                  hx-confirm="Êtes-vous sûr de vouloir supprimer ce compte ?"
+                  class="px-3 py-1.5 bg-action-danger/10 hover:bg-action-danger/20 text-action-danger text-xs font-semibold rounded-lg transition-colors cursor-pointer">
+            Supprimer
+          </button>
+        </div>
+      {% else %}
+        <p class="text-[10px] text-slate-500 text-center uppercase tracking-wider">
+          Lecture seule (Appartient à {{ account.owner.name }})
+        </p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

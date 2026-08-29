@@ -26,6 +26,13 @@
   --color-budget-savings: #8b5cf6;
   --color-budget-income: #10b981;
 
+  /* Couleurs des types de compte bancaire */
+  --color-account-checking: #3b82f6; /* Bleu (comme budget-initial) */
+  --color-account-savings: #8b5cf6; /* Violet (comme budget-savings) */
+  --color-account-business: #64748b; /* Gris ardoise */
+  --color-account-meal: #f59e0b; /* Orange (comme budget-variable, ou tickets resto) */
+  --color-account-other: #14b8a6; /* Vert émeraude clair */
+
   /* Rayons de bordure */
   --radius-card: 1rem;
   --radius-modal: 1.5rem;

@@ -1,4 +1,12 @@
 {% extends "budget/components/card.html" %}
+{% block card_border %}
+  {% if account.owner.id != member.id %}border-dashed border-slate-600{% else %}border-brand-border{% endif %}
+{% endblock %}
+
+{% block card_classes %}
+  {% if account.owner.id != member.id %}opacity-80 bg-slate-900/40{% endif %}
+{% endblock %}
+
 {% block card_body %}
   <!-- En-tête avec Solde Estimé dynamique -->
   <div class="flex items-center justify-between pb-2 border-b border-brand-border/60">
