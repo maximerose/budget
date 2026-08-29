@@ -131,7 +131,7 @@ def calculate_monthly_projected_balances(
         category_forecasts[f.category] += f.amount
 
     for category, total_amount in category_forecasts.items():
-        if category.type in [CategoryType.INCOME, CategoryType.SAVING]:
+        if category.type in [CategoryType.INCOME, CategoryType.SAVINGS]:
             continue
 
         realized = Transaction.objects.filter(

@@ -388,6 +388,12 @@
   .h-full {
     height: 100%;
   }
+  .min-h-25 {
+    min-height: calc(var(--spacing) * 25);
+  }
+  .min-h-45 {
+    min-height: calc(var(--spacing) * 45);
+  }
   .min-h-\[100px\] {
     min-height: 100px;
   }
