@@ -1,3 +1,4 @@
+import calendar
 import datetime
 from collections import defaultdict
 from decimal import Decimal
@@ -300,11 +301,21 @@ def get_recurring_expenses_with_status(
 
         realized = sum(t.total_amount for t in transactions) or Decimal("0.00")
 
+        # --- Calcul de l'éligibilité et de l'échéance pour le mois cible ---
         next_date = None
         is_overdue = False
-        is_due_this_month = True
+        is_due_this_month = False
 
-        if expense.usual_due_day:
+        if expense.frequency_months == 1:
+            # Une charge mensuelle est DUE TOUS LES MOIS
+            is_due_this_month = True
+            if expense.usual_due_day:
+                # On cale le jour de prélèvement sur le mois consulté
+                last_day = calendar.monthrange(target_month.year, target_month.month)[1]
+                day = min(expense.usual_due_day.day, last_day)
+                next_date = datetime.date(target_month.year, target_month.month, day)
+        elif expense.usual_due_day:
+            # Pour les fréquences > 1 mois (trimestriel, annuel...)
             next_date = expense.usual_due_day
             while next_date.replace(day=1) < target_month:
                 next_date = advance_date(next_date, expense.frequency_months)
@@ -313,24 +324,40 @@ def get_recurring_expenses_with_status(
                 and next_date.month == target_month.month
             )
 
+        # Si pas d'échéance ce mois-ci, pas d'exception mensuelle, ET rien n'a été payé : on masque
         if not is_due_this_month and not has_override and realized == Decimal("0.00"):
             continue
 
-        status = (
-            RecurringExpenseStatus.WAITING
-            if realized == Decimal("0.00")
-            else (
-                RecurringExpenseStatus.PARTIAL
-                if realized < expected_total
-                else RecurringExpenseStatus.COMPLETED
-            )
-        )
+        # --- Détermination du Statut ---
+        is_past_month = target_month < today.replace(day=1)
 
-        if expense.usual_due_day and is_due_this_month:
-            if status == RecurringExpenseStatus.COMPLETED:
-                next_date = advance_date(next_date, expense.frequency_months)
-            elif today > next_date:
-                is_overdue = True
+        if is_past_month:
+            # Dans le passé, si au moins une transaction existe, la charge est soldée (évite les faux "partiellement payé")
+            status = (
+                RecurringExpenseStatus.COMPLETED
+                if realized > Decimal("0.00")
+                else RecurringExpenseStatus.WAITING
+            )
+        else:
+            # Pour le mois en cours ou futur, logique standard
+            status = (
+                RecurringExpenseStatus.WAITING
+                if realized == Decimal("0.00")
+                else (
+                    RecurringExpenseStatus.PARTIAL
+                    if realized < expected_total
+                    else RecurringExpenseStatus.COMPLETED
+                )
+            )
+
+        # Retard uniquement pour le mois en cours / futur
+        if (
+            next_date
+            and not is_past_month
+            and status != RecurringExpenseStatus.COMPLETED
+            and today > next_date
+        ):
+            is_overdue = True
 
         # Calcul de la part attendue pour le membre connecté
         my_expected_share = expected_total
@@ -358,25 +385,6 @@ def get_recurring_expenses_with_status(
 
         my_remaining = max(Decimal("0.00"), my_expected_share - my_realized)
         global_remaining = max(Decimal("0.00"), expected_total - realized)
-
-        # --- Calcul intelligent de la prochaine échéance ---
-        next_date = None
-        is_overdue = False
-
-        if expense.usual_due_day:
-            next_date = expense.usual_due_day
-
-            while next_date.replace(day=1) < target_month:
-                next_date = advance_date(next_date, expense.frequency_months)
-
-            if (
-                next_date.year == target_month.year
-                and next_date.month == target_month.month
-            ):
-                if status == RecurringExpenseStatus.COMPLETED:
-                    next_date = advance_date(next_date, expense.frequency_months)
-                elif today > next_date:
-                    is_overdue = True
 
         if shares.exists():
             account_name = "Multiples comptes"
