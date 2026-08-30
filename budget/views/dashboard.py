@@ -10,9 +10,10 @@ from django.utils import timezone
 
 from budget.models import BankAccount, HouseholdMember
 from budget.models.account import AccountType, Visibility
+from budget.models.category import CategoryType
 from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense
-from budget.models.transaction import Transaction, TransactionType
+from budget.models.transaction import Transaction, TransactionType, Transfer
 from budget.services.forecast import (
     calculate_monthly_projected_balances,
     create_transaction_from_recurring_expense,
@@ -31,20 +32,107 @@ def dashboard_view(request: Request) -> HttpResponse:
 
     accounts_with_projections = []
     recurring_expenses = []
+    recent_transactions = []
+    variable_forecasts = []
+    savings_forecasts = []
 
     today = get_target_month_from_request(request)
 
     if member:
+        household = member.household
         accounts = BankAccount.objects.filter(
             Q(owner=member)
-            | Q(owner__household=member.household, visibility=Visibility.SHARED),
+            | Q(owner__household=household, visibility=Visibility.SHARED),
             is_active=True,
         ).distinct()
 
-        recurring_expenses = get_recurring_expenses_with_status(member, today)
-        projection_steps = calculate_monthly_projected_balances(member, today)
+        # 1. 10 Dernières transactions (Dépenses, Revenus, TR)
+        recent_transactions = Transaction.objects.filter(
+            bank_account__in=accounts,
+            budget_month__year=today.year,
+            budget_month__month=today.month,
+        ).select_related(
+            "category",
+            "bank_account",
+            "bank_account__owner",
+            "meal_voucher_bank_account",
+        )[:10]
 
-        # On associe les données de projection à chaque compte individuellement
+        # 2. Charges fixes
+        recurring_expenses = get_recurring_expenses_with_status(member, today)
+
+        # 3. Enveloppes des charges variables restantes par catégorie
+        category_forecasts = MonthlyForecast.objects.filter(
+            member__household=household,
+            month__year=today.year,
+            month__month=today.month,
+            category__isnull=False,
+            category__type=CategoryType.VARIABLE,
+            is_active=True,
+        ).select_related("category")
+
+        for forecast in category_forecasts:
+            category = forecast.category
+            realized = Transaction.objects.filter(
+                bank_account__in=accounts,
+                category=category,
+                recurring_expense__isnull=True,
+                budget_month__year=today.year,
+                budget_month__month=today.month,
+                transaction_type=TransactionType.EXPENSE,
+            ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+            remaining = max(Decimal("0.00"), forecast.amount - realized)
+            variable_forecasts.append(
+                {
+                    "category": category,
+                    "budget_amount": forecast.amount,
+                    "realized_amount": realized,
+                    "remaining_amount": remaining,
+                }
+            )
+
+        # 4. Enveloppes d'épargne restantes
+        savings_qs = MonthlyForecast.objects.filter(
+            member__household=household,
+            month__year=today.year,
+            month__month=today.month,
+            bank_account__isnull=False,
+            bank_account__account_type=AccountType.SAVINGS,
+            is_active=True,
+        ).select_related("bank_account")
+
+        for forecast in savings_qs:
+            target_account = forecast.bank_account
+            realized_transfers = Transfer.objects.filter(
+                destination_account=target_account,
+                source_account__in=accounts,
+                date__year=today.year,
+                date__month=today.month,
+            ).aggregate(Sum("amount"))["amount__sum"] or Decimal("0.00")
+
+            realized_tx = Transaction.objects.filter(
+                budget_month__year=today.year,
+                budget_month__month=today.month,
+                bank_account=target_account,
+                transaction_type=TransactionType.INCOME,
+            ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+
+            realized = realized_transfers + realized_tx
+            remaining = max(Decimal("0.00"), forecast.amount - realized)
+
+            # On append bien dans la liste, et non dans le queryset
+            savings_forecasts.append(
+                {
+                    "account": target_account,
+                    "budget_amount": forecast.amount,
+                    "realized_amount": realized,
+                    "remaining_amount": remaining,
+                }
+            )
+
+        # 5. Calcul des prévisions
+        projection_steps = calculate_monthly_projected_balances(member, today)
         for account in accounts:
             accounts_with_projections.append(
                 {
@@ -89,8 +177,11 @@ def dashboard_view(request: Request) -> HttpResponse:
         "budget/dashboard.html",
         {
             "member": member,
-            "accounts_data": accounts_with_projections,
+            "recent_transactions": recent_transactions,
             "recurring_expenses": recurring_expenses,
+            "variable_forecasts": variable_forecasts,
+            "savings_forecasts": savings_forecasts,
+            "accounts_data": accounts_with_projections,
             "today": today,
         },
     )

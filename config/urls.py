@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from budget.views import dashboard_view, quick_expense_form_view
+from budget.views import dashboard_view, quick_transaction_form_view
 from budget.views.accounts import (
     settings_account_delete_view,
     settings_account_form_view,
@@ -22,7 +22,12 @@ from budget.views.recurring import (
     settings_recurring_share_delete_view,
     settings_recurring_shares_view,
 )
-from budget.views.transactions import adjust_account_balance_view
+from budget.views.transactions import (
+    adjust_account_balance_view,
+    monthly_history_view,
+    transaction_delete_view,
+    transaction_update_view,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -37,7 +42,9 @@ urlpatterns = [
     path("join/<uuid:token>/", join_household_view, name="join_household"),
     # --- Application ---
     path("", dashboard_view, name="dashboard"),
-    path("quick-expense/", quick_expense_form_view, name="quick_expense_form"),
+    path(
+        "quick-transaction/", quick_transaction_form_view, name="quick_transaction_form"
+    ),
     path(
         "account/<str:account_id>/adjust/",
         adjust_account_balance_view,
@@ -47,6 +54,21 @@ urlpatterns = [
         "recurring/<str:expense_id>/pay/",
         pay_recurring_expense_view,
         name="pay_recurring_expense",
+    ),
+    path(
+        "transactions/<uuid:transaction_id>/update/",
+        transaction_update_view,
+        name="transaction_update",
+    ),
+    path(
+        "transactions/<uuid:transaction_id>/delete/",
+        transaction_delete_view,
+        name="transaction_delete",
+    ),
+    path(
+        "transactions/history/",
+        monthly_history_view,
+        name="monthly_history",
     ),
     # --- Paramètres & Configuration ---
     path("settings/accounts/", settings_accounts_list_view, name="settings_accounts"),

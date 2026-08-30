@@ -1,0 +1,23 @@
+{% extends "budget/components/card.html" %}
+
+{% block card_body %}
+  <div class="pb-3 border-b border-brand-border">
+    {% include "budget/components/heading.html" with title="Estimations Charges variables restantes" level="3" %}
+  </div>
+
+  <div class="divide-y divide-brand-border/60">
+    {% for env in variable_forecasts %}
+      <div class="py-2.5 flex items-center justify-between text-sm">
+        <div>
+          <p class="font-semibold text-slate-200">{{ env.category.name }}</p>
+          <p class="text-[11px] text-slate-500">
+            Dépensé : {{ env.realized_amount|floatformat:"2g" }} € / {{ env.budget_amount|floatformat:"2g" }} €
+          </p>
+        </div>
+        {% include "budget/components/amount.html" with amount=env.remaining_amount custom_class="text-sm font-bold" %}
+      </div>
+    {% empty %}
+      <p class="text-xs text-slate-500 py-3 text-center">Aucune prévision de charges variables configurée pour ce mois.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

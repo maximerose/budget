@@ -1,17 +1,27 @@
-<form hx-post="{% url 'quick_expense_form' %}"
+<form hx-post="{% if transaction %}{% url 'transaction_update' transaction.id %}{% else %}{% url 'quick_transaction_form' %}{% endif %}"
       hx-target="#modal-container"
       hx-swap="innerHTML"
-      id="quick-expense-form">
+      id="quick-transaction-form">
     {% csrf_token %}
 
-    <!-- 1. Onglets de sélection (Dépense / Revenu / Transfert) -->
-    <div class="flex p-1 bg-slate-900 rounded-xl mb-6 shadow-inner">
+    <!-- 1. Onglets de sélection -->
+    <div class="{% if transaction and transaction.recurring_expense %}hidden{% else %}flex{% endif %} p-1 bg-slate-900 rounded-xl mb-6 shadow-inner">
         <label class="flex-1 cursor-pointer">
-            <input type="radio" name="tx_type" value="EXPENSE" class="peer hidden" checked onchange="toggleTxType()" />
+            <input type="radio"
+                   name="tx_type"
+                   value="EXPENSE"
+                   class="peer hidden"
+                   {% if not transaction or transaction.transaction_type == 'EXPENSE' %}checked{% endif %}
+                   onchange="toggleTxType()" />
             <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-action-danger/20 peer-checked:text-action-danger transition-all">Dépense</div>
         </label>
         <label class="flex-1 cursor-pointer">
-            <input type="radio" name="tx_type" value="INCOME" class="peer hidden" onchange="toggleTxType()" />
+            <input type="radio"
+                   name="tx_type"
+                   value="INCOME"
+                   class="peer hidden"
+                   {% if transaction.transaction_type == 'INCOME' %}checked{% endif %}
+                   onchange="toggleTxType()" />
             <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-budget-income/20 peer-checked:text-budget-income transition-all">Revenu</div>
         </label>
         <label class="flex-1 cursor-pointer">
@@ -20,25 +30,29 @@
         </label>
     </div>
 
-    <!-- 2. Saisie du Montant -->
+    <!-- 2. Saisie du Montant (Validation linter via w-[4.5ch]) -->
     <div class="mb-6 border-b border-brand-border/60 pb-6">
-        <input type="number"
-               name="total_amount"
-               step="0.01"
-               class="w-full bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none"
-               placeholder="0,00 €"
-               required
-               autofocus />
+        <div class="flex items-center justify-center gap-1.5 w-full">
+            <input type="number"
+                   name="total_amount"
+                   step="0.01"
+                   value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}"
+                   class="w-[4.5ch] bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none transition-all duration-75"
+                   placeholder="0.00"
+                   required
+                   autofocus />
+            <span class="text-4xl font-extrabold text-slate-500 mt-1">€</span>
+        </div>
         <p id="refund-hint" class="text-center text-xs text-slate-500 mt-2 transition-colors">
             💡 Saisissez un montant négatif pour un remboursement.
         </p>
     </div>
 
-    <!-- 3. Blocs de champs dynamiques (Gérés via JS) -->
+    <!-- 3. Blocs de champs dynamiques -->
     <div id="block-expense">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense %}
-            {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id %}
+            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id required=True %}
+            {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id required=True %}
         </div>
 
         <!-- Section Tickets Resto -->
@@ -49,6 +63,7 @@
                     <input type="checkbox"
                            id="use_meal_voucher"
                            class="rounded border-slate-600 bg-slate-900 focus:ring-1 focus:ring-offset-0 focus:ring-offset-transparent text-brand"
+                           {% if transaction and transaction.meal_voucher_amount > 0 %}checked{% endif %}
                            onchange="toggleMealVoucherAmount()" />
                     <span class="text-sm font-medium text-slate-200">Régler avec Tickets Resto</span>
                 </label>
@@ -62,7 +77,8 @@
                                 class="input-base px-3 py-1.5 text-sm"
                                 onchange="updateTrMax()">
                             {% for tr in tr_accounts_info %}
-                                <option value="{{ tr.id }}">{{ tr.name }}</option>
+                                <option value="{{ tr.id }}"
+                                        {% if transaction.meal_voucher_bank_account_id|stringformat:"s" == tr.id %}selected{% endif %}>{{ tr.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -75,24 +91,31 @@
                                id="meal_voucher_amount"
                                name="meal_voucher_amount"
                                step="0.01"
+                               value="{% if transaction and transaction.meal_voucher_amount %}{{ transaction.meal_voucher_amount|stringformat:'.2f' }}{% endif %}"
                                class="input-base px-3 py-1.5 text-sm font-bold text-brand" />
                     </div>
                 </div>
+            </div>
+
+            <!-- Message d'alerte plafond atteint -->
+            <div id="tr-empty-message"
+                 class="hidden mt-4 p-3 bg-action-warning/10 text-action-warning rounded-xl border border-action-warning/30 text-sm text-center">
+                Vous avez atteint votre plafond Tickets Resto pour aujourd'hui.
             </div>
         {% endif %}
     </div>
 
     <div id="block-income" class="hidden">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income %}
-            {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
+            {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id required=True %}
+            {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id required=True %}
         </div>
     </div>
 
     <div id="block-transfer" class="hidden">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id %}
-            {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts %}
+            {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id required=True %}
+            {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts required=True %}
         </div>
     </div>
 
@@ -112,15 +135,27 @@
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Imputation</label>
                 <div class="flex gap-1 h-9.5">
                     <label class="flex-1 cursor-pointer h-full">
-                        <input type="radio" name="budget_shift" value="-1" class="peer hidden" />
+                        <input type="radio"
+                               name="budget_shift"
+                               value="-1"
+                               class="peer hidden"
+                               {% if budget_shift == -1 %}checked{% endif %} />
                         <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">M-1</div>
                     </label>
                     <label class="flex-1 cursor-pointer h-full">
-                        <input type="radio" name="budget_shift" value="0" class="peer hidden" checked />
+                        <input type="radio"
+                               name="budget_shift"
+                               value="0"
+                               class="peer hidden"
+                               {% if budget_shift == 0 or budget_shift is None %}checked{% endif %} />
                         <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">Ce mois</div>
                     </label>
                     <label class="flex-1 cursor-pointer h-full">
-                        <input type="radio" name="budget_shift" value="1" class="peer hidden" />
+                        <input type="radio"
+                               name="budget_shift"
+                               value="1"
+                               class="peer hidden"
+                               {% if budget_shift == 1 %}checked{% endif %} />
                         <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">M+1</div>
                     </label>
                 </div>
@@ -129,6 +164,7 @@
 
         <input type="text"
                name="label"
+               value="{{ transaction.label|default:'' }}"
                class="input-base px-3 py-2 text-sm"
                placeholder="Libellé ou commentaire..." />
     </div>
@@ -137,7 +173,7 @@
         const catTrMap = JSON.parse('{{ cat_tr_map|escapejs }}');
         const trAccountsInfo = JSON.parse('{{ tr_accounts_info_json|escapejs|default:"[]" }}');
         
-        const amountInput = document.querySelector('#quick-expense-form input[name="total_amount"]');
+        const amountInput = document.querySelector('#quick-transaction-form input[name="total_amount"]');
         const refundHint = document.getElementById('refund-hint');
         const trWrapper = document.getElementById('meal-voucher-wrapper');
         const trCheckbox = document.getElementById('use_meal_voucher');
@@ -147,7 +183,14 @@
         const trMaxLabel = document.getElementById('tr-max-label');
         const expenseAccountSelect = document.querySelector('select[name="expense_account"]');
         const categorySelect = document.querySelector('select[name="expense_category"]');
+        const trEmptyMsg = document.getElementById('tr-empty-message');
         
+        function autoResizeAmount() {
+            if (!amountInput) return;
+            const length = amountInput.value.length || 4;
+            amountInput.style.width = `${length + 0.5}ch`;
+        }
+
         function getSelectedTrAccount() {
             if (!trAccountSelect || !trAccountsInfo.length) return null;
             return trAccountsInfo.find(acc => acc.id === trAccountSelect.value);
@@ -157,15 +200,12 @@
             const trAcc = getSelectedTrAccount();
             if (!trAcc) return;
             
-            // Maj du label de plafond
             trMaxLabel.textContent = `Max dispo: ${trAcc.remaining.toFixed(2)} €`;
             
-            // Auto-calcul du montant pris sur la carte TR
             const total = parseFloat(amountInput.value) || 0;
             const suggested = Math.max(0, Math.min(total, trAcc.remaining));
             trAmountInput.value = suggested > 0 ? suggested.toFixed(2) : "";
             
-            // AUTO-SELECTION DU COMPTE RELAI
             if (trAcc.fallback_id && expenseAccountSelect) {
                 expenseAccountSelect.value = trAcc.fallback_id;
             }
@@ -177,13 +217,23 @@
             const catId = categorySelect.value;
             const isEligible = catTrMap[catId] === true;
             
-            // Afficher l'encart si : Dépense + Éligible + Au moins un compte a du solde
             const hasTrBalance = trAccountsInfo.some(acc => acc.remaining > 0);
             
-            if (txType === 'EXPENSE' && isEligible && hasTrBalance) {
-                trWrapper.classList.remove('hidden');
+            if (txType === 'EXPENSE' && isEligible) {
+                if (hasTrBalance) {
+                    trWrapper.classList.remove('hidden');
+                    if (trEmptyMsg) trEmptyMsg.classList.add('hidden');
+                } else {
+                    trWrapper.classList.add('hidden');
+                    if (trEmptyMsg) trEmptyMsg.classList.remove('hidden');
+                    if (trCheckbox) {
+                        trCheckbox.checked = false;
+                        toggleMealVoucherAmount();
+                    }
+                }
             } else {
                 trWrapper.classList.add('hidden');
+                if (trEmptyMsg) trEmptyMsg.classList.add('hidden');
                 if (trCheckbox) {
                     trCheckbox.checked = false;
                     toggleMealVoucherAmount();
@@ -214,13 +264,13 @@
             updateTrVisibility();
         }
   
-        // Écouteurs d'événements
         if (categorySelect) categorySelect.addEventListener('change', updateTrVisibility);
         
         if (amountInput) {
             amountInput.addEventListener('input', (e) => {
+                autoResizeAmount();
+                
                 const val = parseFloat(e.target.value) || 0;
-                // 1. UI Remboursement
                 if (refundHint) {
                     if (val < 0) {
                         refundHint.innerHTML = "🔄 Mode remboursement activé";
@@ -232,14 +282,30 @@
                         refundHint.classList.remove("font-bold");
                     }
                 }
-                // 2. Mise à jour de la suggestion TR si le montant total change
                 if (trCheckbox && trCheckbox.checked) {
                     updateTrMax();
                 }
             });
         }
+
+        const isEditMode = "{{ transaction|yesno:'true,false' }}" === "true";
   
         // Initialisation
-        updateTrVisibility();
+        autoResizeAmount();
+
+        if (isEditMode) {
+            toggleTxType();
+            if (trCheckbox && trCheckbox.checked) {
+                trDetails.classList.remove('hidden');
+                const trAcc = getSelectedTrAccount();
+                if (trAcc && trMaxLabel) {
+                    trMaxLabel.textContent = `Max dispo: ${trAcc.remaining.toFixed(2)} €`;
+                }
+            } else {
+                updateTrVisibility();
+            }
+        } else {
+            updateTrVisibility();
+        }
     </script>
 </form>

@@ -23,6 +23,7 @@ class RecurringExpenseForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, household: Household, **kwargs) -> None:
+        self.household = household
         super().__init__(*args, **kwargs)
 
         # Restreindre aux catégories "Récurrentes" du foyer
@@ -39,6 +40,35 @@ class RecurringExpenseForm(forms.ModelForm):
                 owner__household=household,
                 is_active=True,
             )
+
+    def clean_label(self):
+        """Validation personnalisée du champ 'label'."""
+        label = self.cleaned_data.get("label")
+        if not label:
+            return label
+
+        label = label.strip()
+
+        existing_expenses = RecurringExpense.objects.filter(
+            household=self.household, label__iexact=label
+        )
+
+        if self.instance and self.instance.pk:
+            existing_expenses = existing_expenses.exclude(pk=self.instance.pk)
+
+        existing = existing_expenses.first()
+
+        if existing:
+            if existing.is_active:
+                raise forms.ValidationError(
+                    "Une charge fixe avec ce nom existe déjà dans votre foyer."
+                )
+            else:
+                raise forms.ValidationError(
+                    "Cette charge fixe existe déjà mais a été supprimée. Choisissez un autre nom ou réactivez l'ancienne."
+                )
+
+        return label
 
 
 class RecurringExpenseShareForm(forms.ModelForm):

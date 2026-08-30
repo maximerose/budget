@@ -1,0 +1,21 @@
+{% extends "budget/components/card.html" %}
+
+{% block card_body %}
+  <div class="flex items-center justify-between pb-3 border-b border-brand-border">
+    {% include "budget/components/heading.html" with title="Dernières Transactions" level="3" %}
+  </div>
+
+  <div id="recent-transactions-list" class="divide-y divide-brand-border/60">
+    {% include "budget/partials/transactions/_monthly_history_list.html" with monthly_transactions=recent_transactions %}
+  </div>
+
+  <div class="mt-4 text-center" id="voir-tout-container">
+    <button hx-get="{% url 'monthly_history' %}?month={{ today|date:'Y-m' }}"
+            hx-target="#recent-transactions-list"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('voir-tout-container').style.display='none'"
+            class="inline-flex items-center justify-center font-semibold px-4 py-2 rounded-xl transition-all text-sm cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300">
+      Voir toutes les transactions du mois
+    </button>
+  </div>
+{% endblock %}

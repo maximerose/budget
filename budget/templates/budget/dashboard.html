@@ -1,17 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Dashboard | Mon Budget{% endblock %}
+
 {% block content %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <div class="space-y-6 mb-16 md:mb-0">
+
+  <div class="space-y-8 mb-16 md:mb-0">
+
     <!-- En-tête -->
     <div class="bg-brand-card border border-brand-border p-6 rounded-card shadow-sm">
-      {% include "budget/components/heading.html" with level="1" title="Bonjour "|add:member.name|default:"Bonjour à toi"|add:" 👋" subtitle="Voici la projection de tes comptes ce mois-ci." %}
+      {% include "budget/components/heading.html" with level="1" title="Bonjour "|add:member.name|default:"Bonjour à toi"|add:" 👋" subtitle="Voici l'aperçu complet de ton budget." %}
     </div>
-    <!-- 1. Cartes des comptes -->
-    {% include "budget/partials/accounts/_cards_list.html" %}
-    <!-- 2. Section Projections / Cascades -->
-    {% include "budget/partials/accounts/_cascade_projection.html" %}
-    <!-- 3. Synthèse des charges récurrentes -->
-    {% include "budget/partials/recurring/_summary_list.html" %}
+
+    <!-- 1. DERNIÈRES DÉPENSES -->
+    <section class="space-y-3">
+      {% include "budget/partials/transactions/_recent_list.html" %}
+    </section>
+
+    <!-- 2. DÉPENSES À VENIR (Charges Fixes, Enveloppes Variables, Épargne) -->
+    <section class="space-y-4">
+      <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+        <span>📅</span> Dépenses à venir
+      </h2>
+
+      <!-- Charges Fixes -->
+      {% include "budget/partials/recurring/_summary_list.html" %}
+
+      <!-- Enveloppes Variables & Épargne -->
+      {% include "budget/partials/forecast/_forecasts_list.html" %}
+    </section>
+
+    <!-- 3. PRÉVISIONS & COMPTES -->
+    <section class="space-y-4">
+      <!-- Cartes des comptes -->
+      {% include "budget/partials/accounts/_cards_list.html" %}
+
+      <!-- Projections / Cascades -->
+      {% include "budget/partials/accounts/_cascade_projection.html" %}
+    </section>
+
   </div>
 {% endblock %}

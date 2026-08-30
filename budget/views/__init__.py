@@ -14,4 +14,8 @@ from .recurring import (
     settings_recurring_share_delete_view as settings_recurring_share_delete_view,
 )
 from .recurring import settings_recurring_shares_view as settings_recurring_shares_view
-from .transactions import quick_expense_form_view as quick_expense_form_view
+from .transactions import adjust_account_balance_view as adjust_account_balance_view
+from .transactions import monthly_history_view as monthly_history_view
+from .transactions import quick_transaction_form_view as quick_transaction_form_view
+from .transactions import transaction_delete_view as transaction_delete_view
+from .transactions import transaction_update_view as transaction_update_view

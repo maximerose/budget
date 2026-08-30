@@ -65,7 +65,7 @@
 
       <!-- Bouton Flottant (FAB) -->
       {% if request.resolver_match.url_name == 'dashboard' %}
-        <button hx-get="{% url 'quick_expense_form' %}"
+        <button hx-get="{% url 'quick_transaction_form' %}"
                 hx-target="#modal-container"
                 hx-swap="innerHTML"
                 class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">

@@ -34,17 +34,17 @@ class TransactionViewsTestCase(TestCase):
             household=self.household,
         )
 
-    def test_quick_expense_get(self) -> None:
-        url = reverse("quick_expense_form")
+    def test_quick_transaction_get(self) -> None:
+        url = reverse("quick_transaction_form")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(
-            response, "budget/partials/transactions/_modal_quick_expense.html"
+            response, "budget/partials/transactions/_modal_quick_transaction.html"
         )
 
-    def test_quick_expense_post(self) -> None:
-        url = reverse("quick_expense_form")
+    def test_quick_transaction_post(self) -> None:
+        url = reverse("quick_transaction_form")
         today = timezone.localdate()
 
         data = {

@@ -23,6 +23,7 @@ from budget.utils import (
     advance_date,
     calculate_budget_month,
     get_remaining_meal_voucher_ceiling,
+    get_target_month_from_request,
     htmx_login_required,
 )
 
@@ -55,7 +56,7 @@ def adjust_account_balance_view(
 
 @htmx_login_required
 @require_http_methods(["GET", "POST"])
-def quick_expense_form_view(request: Request) -> HttpResponse:
+def quick_transaction_form_view(request: Request) -> HttpResponse:
     current_member = HouseholdMember.objects.filter(
         user=request.user, is_active=True
     ).first()
@@ -173,7 +174,7 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
 
     return render(
         request,
-        "budget/partials/transactions/_modal_quick_expense.html",
+        "budget/partials/transactions/_modal_quick_transaction.html",
         {
             "categories_expense": categories_expense,
             "categories_income": categories_income,
@@ -183,5 +184,202 @@ def quick_expense_form_view(request: Request) -> HttpResponse:
             "tr_accounts_info": tr_accounts_info,
             "tr_accounts_info_json": json.dumps(tr_accounts_info),
             "cat_tr_map": json.dumps(cat_tr_map),
+        },
+    )
+
+
+@htmx_login_required
+@require_http_methods(["GET", "POST"])
+def transaction_update_view(request, transaction_id: str):
+    current_member = HouseholdMember.objects.filter(
+        user=request.user, is_active=True
+    ).first()
+
+    tx = get_object_or_404(
+        Transaction,
+        id=transaction_id,
+        bank_account__owner=current_member,
+    )
+
+    if request.method == "POST":
+        total_amount = Decimal(request.POST.get("total_amount", "0.00"))
+        label = request.POST.get("label", "")
+        transaction_date_str = request.POST.get("transaction_date")
+        transaction_date = (
+            datetime.date.fromisoformat(transaction_date_str)
+            if transaction_date_str
+            else tx.transaction_date
+        )
+
+        shift = int(request.POST.get("budget_shift", "0"))
+        if shift != 0:
+            target_date = advance_date(transaction_date, shift)
+            budget_month = calculate_budget_month(
+                transaction_date, target_date.year, target_date.month
+            )
+        else:
+            budget_month = transaction_date
+
+        if tx.transaction_type == TransactionType.EXPENSE:
+            category_id = request.POST.get("expense_category")
+            bank_account_id = request.POST.get("expense_account")
+        else:
+            category_id = request.POST.get("income_category")
+            bank_account_id = request.POST.get("income_account")
+
+        meal_voucher_amount = Decimal(request.POST.get("meal_voucher_amount") or "0.00")
+        meal_voucher_account_id = request.POST.get("meal_voucher_account_id")
+
+        tx.total_amount = total_amount
+        tx.label = label
+        tx.category_id = category_id
+        tx.bank_account_id = bank_account_id
+        tx.transaction_date = transaction_date
+        tx.budget_month = budget_month
+        tx.meal_voucher_amount = (
+            meal_voucher_amount
+            if tx.transaction_type == TransactionType.EXPENSE
+            else Decimal("0.00")
+        )
+        tx.meal_voucher_bank_account_id = (
+            meal_voucher_account_id
+            if meal_voucher_amount > 0
+            and tx.transaction_type == TransactionType.EXPENSE
+            else None
+        )
+
+        tx.save()
+
+        response = HttpResponse("")
+        response["HX-Refresh"] = "true"
+        return response
+
+    # --- Préparation des listes pour la modale en GET ---
+    categories_expense = Category.objects.filter(
+        is_active=True, household=current_member.household
+    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
+
+    categories_income = Category.objects.filter(
+        is_active=True, household=current_member.household, type=CategoryType.INCOME
+    ).exclude(type=CategoryType.SAVINGS)
+
+    accounts = BankAccount.objects.filter(
+        Q(owner=current_member)
+        | Q(owner__household=current_member.household, visibility=Visibility.SHARED),
+        is_active=True,
+    ).distinct()
+
+    account_options = [
+        {
+            "id": acc.id,
+            "name": f"{acc.name} ({acc.owner.name})"
+            if acc.owner_id != current_member.id
+            else acc.name,
+        }
+        for acc in accounts
+    ]
+
+    tr_accounts = accounts.filter(account_type=AccountType.MEAL_VOUCHER)
+    tr_accounts_info = [
+        {
+            "id": str(tr.id),
+            "name": tr.name,
+            "remaining": float(
+                get_remaining_meal_voucher_ceiling(
+                    tx.transaction_date, tr, exclude_transaction_pk=tx.pk
+                )
+                or Decimal("0.00")
+            ),
+            "fallback_id": str(tr.fallback_account_id)
+            if tr.fallback_account_id
+            else "",
+        }
+        for tr in tr_accounts
+    ]
+
+    cat_tr_map = {str(c.id): c.is_meal_voucher_eligible for c in categories_expense}
+
+    # Calcul du budget_shift pour pré-sélectionner l'imputation (M-1, Ce mois, M+1)
+    # Calcul du budget_shift pour pré-sélectionner l'imputation (M-1, Ce mois, M+1)
+    shift = 0
+    if tx.budget_month and tx.transaction_date:
+        tx_m = (tx.transaction_date.year, tx.transaction_date.month)
+        bg_m = (tx.budget_month.year, tx.budget_month.month)
+
+        if bg_m < tx_m:
+            shift = -1
+        elif bg_m > tx_m:
+            shift = 1
+
+    return render(
+        request,
+        "budget/partials/transactions/_modal_quick_transaction.html",
+        {
+            "transaction": tx,
+            "budget_shift": shift,
+            "selected_category_id": tx.category_id,
+            "categories_expense": categories_expense,
+            "categories_income": categories_income,
+            "accounts": account_options,
+            "selected_account_id": tx.bank_account_id,
+            "today": tx.transaction_date,
+            "tr_accounts_info": tr_accounts_info,
+            "tr_accounts_info_json": json.dumps(tr_accounts_info),
+            "cat_tr_map": json.dumps(cat_tr_map),
+        },
+    )
+
+
+@htmx_login_required
+def transaction_delete_view(request: Request, transaction_id: str) -> HttpResponse:
+    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    tx = get_object_or_404(
+        Transaction,
+        id=transaction_id,
+        bank_account__owner=member,
+    )
+
+    if request.method == "POST":
+        tx.delete()
+        response = HttpResponse("")
+        response["HX-Refresh"] = "true"
+        return response
+
+    return HttpResponse("Méthode non autorisée", status=405)
+
+
+@htmx_login_required
+def monthly_history_view(request: Request) -> HttpResponse:
+    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+
+    # On récupère le mois ciblé depuis les paramètres de l'URL
+    today = get_target_month_from_request(request)
+
+    accounts = BankAccount.objects.filter(
+        Q(owner=member)
+        | Q(owner__household=member.household, visibility=Visibility.SHARED),
+        is_active=True,
+    ).distinct()
+
+    # On récupère TOUTES les transactions du mois (sans la limite de 10)
+    monthly_transactions = Transaction.objects.filter(
+        bank_account__in=accounts,
+        budget_month__year=today.year,
+        budget_month__month=today.month,
+    ).select_related(
+        "category",
+        "bank_account",
+        "bank_account__owner",
+        "meal_voucher_bank_account",
+        "recurring_expense",
+    )
+
+    # On renvoie directement la boucle HTML (pas de modale)
+    return render(
+        request,
+        "budget/partials/transactions/_monthly_history_list.html",
+        {
+            "monthly_transactions": monthly_transactions,
+            "member": member,
         },
     )

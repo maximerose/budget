@@ -44,6 +44,8 @@ class Transaction(BaseModel):
         on_delete=models.PROTECT,
         related_name="transactions",
         verbose_name="Catégorie",
+        null=True,
+        blank=True,
     )
     bank_account = models.ForeignKey(
         BankAccount,
@@ -74,9 +76,22 @@ class Transaction(BaseModel):
         verbose_name="Montant en Tickets Resto",
     )
 
+    @property
+    def fallback_amount(self) -> Decimal:
+        """Retourne le montant réel débité du compte bancaire principal (hors Tickets Resto)."""
+        return self.total_amount - self.meal_voucher_amount
+
     def __str__(self) -> str:
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
         return f"[{self.get_transaction_type_display()}] {self.transaction_date} - {self.category.name}: {sign}{self.total_amount} € ({self.label})"
+
+    def clean(self) -> None:
+        super().clean()
+        # Règle métier : une transaction doit avoir une catégorie OU une charge fixe
+        if not self.category and not self.recurring_expense:
+            raise ValidationError(
+                "Une transaction doit obligatoirement être rattachée à une catégorie ou à une charge fixe."
+            )
 
     def save(self, *args, **kwargs) -> None:
         is_new = self._state.adding

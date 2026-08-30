@@ -3,12 +3,12 @@ import datetime
 from decimal import Decimal
 from functools import wraps
 
-from django.db.models.aggregates import Sum
+from django.db.models import F, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 
 from budget.models.account import AccountType
-from budget.models.transaction import Transaction
+from budget.models.transaction import Transaction, TransactionType
 
 
 def htmx_login_required(view_func):
@@ -31,14 +31,11 @@ def calculate_budget_month(
     target_key = (target_year, target_month)
 
     if target_key < ref_key:
-        # Antérieur -> dernier jour du mois cible
         last_day = calendar.monthrange(target_year, target_month)[1]
         return datetime.date(target_year, target_month, last_day)
     elif target_key > ref_key:
-        # Postérieur -> Premier jour du mois cible
         return datetime.date(target_year, target_month, 1)
     else:
-        # Même mois -> On conserve la date de référence (ou transaction_date)
         return ref_date
 
 
@@ -47,26 +44,31 @@ def get_remaining_meal_voucher_ceiling(
 ) -> Decimal | None:
     """
     Calcule le plafond journalier des tickets resto restant pour un membre.
-    Retourne None si le membre ne possède pas de compte de tickets resto.
     """
-    # Si ce n'est pas un compte de type tickets resto, il n'y a pas de plafond TR
     if bank_account.account_type != AccountType.MEAL_VOUCHER:
         return None
 
     limit = bank_account.daily_meal_voucher_limit or Decimal("25.00")
 
+    # On ne regarde QUE les dépenses du jour (les revenus ne comptent pas dans le plafond)
     qs = Transaction.objects.filter(
-        transaction_date=transaction_date,
-        category__is_meal_voucher_eligible=True,
-        bank_account=bank_account,
+        transaction_date=transaction_date, transaction_type=TransactionType.EXPENSE
     )
 
     if exclude_transaction_pk:
         qs = qs.exclude(pk=exclude_transaction_pk)
 
-    spent_today = qs.aggregate(Sum("meal_voucher_amount"))[
-        "meal_voucher_amount__sum"
-    ] or Decimal("0.00")
+    # 1. Montant déduit via l'encart Tickets Resto
+    spent_as_tr = qs.filter(meal_voucher_bank_account=bank_account).aggregate(
+        total=Sum("meal_voucher_amount")
+    )["total"] or Decimal("0.00")
+
+    # 2. Montant déduit si le compte TR est sélectionné en compte principal
+    spent_as_main = qs.filter(bank_account=bank_account).aggregate(
+        total=Sum(F("total_amount") - F("meal_voucher_amount"))
+    )["total"] or Decimal("0.00")
+
+    spent_today = spent_as_tr + spent_as_main
 
     return max(Decimal("0.00"), limit - spent_today)
 
