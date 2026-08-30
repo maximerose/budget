@@ -1,7 +1,27 @@
 <div class="space-y-6">
-  {% for item in accounts_data %}
-    {% include "budget/partials/accounts/_cascade_item.html" with account=item.account totals=item.totals %}
-  {% empty %}
-    {% include "budget/partials/shared/_empty_state.html" with message="Aucun compte bancaire actif. Configure-les dans l'admin !" %}
-  {% endfor %}
+
+  {% if accounts_data %}
+    <!-- En-tête global des projections -->
+    <div class="flex items-center gap-3 mb-2">
+      <div class="w-10 h-10 rounded-xl bg-action-info/10 text-action-info flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-base font-bold text-slate-100">Prévisions mensuelles</h2>
+        <p class="text-xs text-slate-400">Estimation de tes soldes après déduction des dépenses et addition des revenus.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Liste des graphiques -->
+  <div class="space-y-6">
+    {% for item in accounts_data %}
+      {% include "budget/partials/accounts/_cascade_item.html" with account=item.account totals=item.totals %}
+    {% empty %}
+      {% include "budget/partials/shared/_empty_state.html" with message="Aucun compte bancaire actif. Configure-les dans l'admin !" %}
+    {% endfor %}
+  </div>
+
 </div>

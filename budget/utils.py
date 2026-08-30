@@ -5,6 +5,7 @@ from functools import wraps
 
 from django.db.models.aggregates import Sum
 from django.http import HttpResponse
+from django.utils import timezone
 
 from budget.models.account import AccountType
 from budget.models.transaction import Transaction
@@ -77,3 +78,16 @@ def advance_date(start_date: datetime.date, months_to_add: int) -> datetime.date
     new_month = month_zero_indexed % 12 + 1
     last_day = calendar.monthrange(new_year, new_month)[1]
     return datetime.date(new_year, new_month, min(start_date.day, last_day))
+
+
+def get_target_month_from_request(request) -> datetime.date:
+    """Extrait le mois ciblé depuis l'URL (?month=YYYY-MM) ou renvoie le mois courant."""
+    month_str = request.GET.get("month")
+    if month_str:
+        try:
+            year, month = map(int, month_str.split("-"))
+            return datetime.date(year, month, 1)
+        except (ValueError, TypeError):
+            pass
+
+    return timezone.localdate().replace(day=1)

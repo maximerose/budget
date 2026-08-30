@@ -80,6 +80,22 @@ def calculate_monthly_projected_balances(
     ).select_related("category", "default_bank_account")
 
     for expense in recurring_expenses:
+        has_override = expense.id in recurring_overrides
+
+        is_due_this_month = True
+
+        if expense.usual_due_day:
+            next_date = expense.usual_due_day
+            while next_date.replace(day=1) < target_month:
+                next_date = advance_date(next_date, expense.frequency_months)
+            is_due_this_month = (
+                next_date.year == target_month.year
+                and next_date.month == target_month.month
+            )
+
+        if not is_due_this_month and not has_override:
+            continue
+
         expected_amount = recurring_overrides.get(expense.id, expense.total_amount)
         shares = expense.shares.filter(is_active=True)
 
@@ -273,6 +289,7 @@ def get_recurring_expenses_with_status(
     results = []
     for expense in expenses:
         expected_total = recurring_overrides.get(expense.id, expense.total_amount)
+        has_override = expense.id in recurring_overrides
 
         # On récupère toutes les transactions (pour avoir l'historique détaillé)
         transactions = Transaction.objects.filter(
@@ -284,6 +301,22 @@ def get_recurring_expenses_with_status(
 
         realized = sum(t.total_amount for t in transactions) or Decimal("0.00")
 
+        next_date = None
+        is_overdue = False
+        is_due_this_month = True
+
+        if expense.usual_due_day:
+            next_date = expense.usual_due_day
+            while next_date.replace(day=1) < target_month:
+                next_date = advance_date(next_date, expense.frequency_months)
+            is_due_this_month = (
+                next_date.year == target_month.year
+                and next_date.month == target_month.month
+            )
+
+        if not is_due_this_month and not has_override and realized == Decimal("0.00"):
+            continue
+
         status = (
             RecurringExpenseStatus.WAITING
             if realized == Decimal("0.00")
@@ -293,6 +326,12 @@ def get_recurring_expenses_with_status(
                 else RecurringExpenseStatus.COMPLETED
             )
         )
+
+        if expense.usual_due_day and is_due_this_month:
+            if status == RecurringExpenseStatus.COMPLETED:
+                next_date = advance_date(next_date, expense.frequency_months)
+            elif today > next_date:
+                is_overdue = True
 
         # Calcul de la part attendue pour le membre connecté
         my_expected_share = expected_total

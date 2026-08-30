@@ -25,11 +25,8 @@
               </div>
               <span class="font-bold text-lg text-slate-100 tracking-tight">Mon Budget</span>
             </a>
-            <!-- Sélecteur de Mois -->
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-semibold px-3 py-1 bg-slate-800 text-slate-300 rounded-full border border-slate-700">
-                Août 2026
-              </span>
+            <div class="flex flex-1 justify-end max-w-[60%] sm:max-w-sm ml-4">
+              {% include "budget/components/month_selector.html" %}
             </div>
           </div>
         </div>

@@ -12,7 +12,7 @@ from budget.models import HouseholdMember, RecurringExpense
 from budget.models.account import BankAccount
 from budget.models.recurring import RecurringExpenseShare
 from budget.services.forecast import get_recurring_expenses_with_status
-from budget.utils import htmx_login_required
+from budget.utils import get_target_month_from_request, htmx_login_required
 
 
 @login_required
@@ -20,7 +20,8 @@ from budget.utils import htmx_login_required
 def settings_recurring_list_view(request: Request) -> HttpResponse:
     member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
 
-    today = timezone.localdate().replace(day=1)
+    today = get_target_month_from_request(request)
+
     recurring_expenses = get_recurring_expenses_with_status(member, today)
 
     return render(

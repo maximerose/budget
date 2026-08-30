@@ -19,7 +19,7 @@ from budget.services.forecast import (
     get_recurring_expenses_with_status,
     get_target_account_for_expense,
 )
-from budget.utils import htmx_login_required
+from budget.utils import get_target_month_from_request, htmx_login_required
 
 
 @login_required
@@ -32,7 +32,7 @@ def dashboard_view(request: Request) -> HttpResponse:
     accounts_with_projections = []
     recurring_expenses = []
 
-    today = timezone.localdate().replace(day=1)
+    today = get_target_month_from_request(request)
 
     if member:
         accounts = BankAccount.objects.filter(

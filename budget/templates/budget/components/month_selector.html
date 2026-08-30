@@ -1,0 +1,72 @@
+<div class="flex items-center w-full">
+
+  <!-- Bouton Calendrier (Archives) -->
+  <div class="relative shrink-0 flex items-center justify-center pr-3 border-r border-brand-border/60 mr-2">
+    <!-- Input HTML5 masqué avec déclencheur showPicker() -->
+    <input type="month"
+           id="archive-month-picker"
+           class="sr-only"
+           onchange="if(this.value) window.location.href='?month=' + this.value"
+           value="{{ selected_month|date:'Y-m' }}" />
+
+    <button type="button"
+            onclick="const p = document.getElementById('archive-month-picker'); if(p.showPicker){ p.showPicker(); } else { p.click(); }"
+            title="Choisir un mois (Archives)"
+            class="w-8 h-8 bg-slate-800 text-slate-400 rounded-lg flex items-center justify-center transition-colors hover:text-brand hover:bg-brand/10 cursor-pointer">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Ruban glissant -->
+  <div class="flex-1 overflow-hidden relative">
+    <div class="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-brand-card/90 to-transparent pointer-events-none z-10"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-brand-card/90 to-transparent pointer-events-none z-10"></div>
+
+    <div class="flex overflow-x-auto gap-2 scrollbar-hide py-1 items-center snap-x"
+         id="month-scroll-container">
+      {% for m in budget_months_list %}
+        <a hx-get="?month={{ m.url_value }}"
+           hx-target="body"
+           hx-swap="innerHTML show:none settle:100ms"
+           hx-push-url="true"
+           hx-trigger="click delay:250ms"
+           onclick="
+             this.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+             document.querySelectorAll('#month-scroll-container a').forEach(el => {
+                el.classList.remove('bg-brand', 'text-brand-dark', 'border-brand', 'shadow-md', 'shadow-brand/20');
+                if(!el.classList.contains('bg-action-info/10')) {
+                    el.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-700');
+                }
+             });
+             this.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-700');
+             this.classList.add('bg-brand', 'text-brand-dark', 'border-brand', 'shadow-md', 'shadow-brand/20');
+           "
+           {% if m.is_active %}id="active-month-tab"{% endif %}
+           class="snap-center shrink-0 text-xs font-semibold px-4 py-1.5 rounded-full border transition-colors cursor-pointer {% if m.is_active %} bg-brand text-brand-dark border-brand shadow-md shadow-brand/20 {% elif m.is_current %} bg-action-info/10 text-action-info border-action-info/30 hover:bg-action-info/20 hover:text-action-info {% else %} bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-500 {% endif %}">
+          {{ m.label }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Script de centrage automatique au chargement/rafraîchissement -->
+<script>
+  function centerActiveMonth() {
+    const activeMonth = document.getElementById("active-month-tab");
+    if (activeMonth) {
+      activeMonth.scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", centerActiveMonth);
+
+  document.body.addEventListener("htmx:afterSettle", function(event) {
+    if (event.detail.target.tagName === 'BODY') {
+      centerActiveMonth();
+    }
+  });
+</script>

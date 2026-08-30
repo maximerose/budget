@@ -20,43 +20,87 @@
       {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-base font-extrabold" %}
     </div>
   </div>
+
   <!-- Courbe de trajectoire -->
-  <div class="relative h-36 w-full my-2">
+  <div class="relative h-36 w-full my-4">
     <canvas id="lineChart-{{ account.id }}"></canvas>
   </div>
-  <!-- Grille de valeurs sous le graphique (KPIs) -->
-  <div class="grid grid-cols-5 gap-1 pt-2 border-t border-brand-border/60 text-center">
-    <div>
-      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Init.</span>
-      {% include "budget/components/amount.html" with amount=totals.initial custom_class="text-xs" %}
-    </div>
-    <div>
-      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Fixes</span>
-      {% include "budget/components/amount.html" with amount=totals.after_recurring custom_class="text-xs" %}
-    </div>
-    <div>
-      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Var.</span>
-      {% include "budget/components/amount.html" with amount=totals.after_variables custom_class="text-xs" %}
-    </div>
-    <div>
-      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Épargne</span>
-      {% include "budget/components/amount.html" with amount=totals.after_savings custom_class="text-xs" %}
-    </div>
-    <div>
-      <span class="text-[9px] text-slate-500 uppercase font-semibold block">Fin</span>
-      {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-xs" %}
+
+  <!-- Valeurs de la projection -->
+  <div class="pt-4 border-t border-brand-border/60">
+    <!-- Grille adaptative : 1 colonne sur mobile (liste), 5 colonnes sur PC -->
+    <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 sm:gap-1 text-left sm:text-center">
+
+      <!-- Étape 1 -->
+      <div class="flex items-center justify-between sm:block p-2 sm:p-0 bg-slate-900/50 sm:bg-transparent rounded-lg"
+           title="Solde au début du mois">
+        <span class="text-[10px] sm:text-[9px] text-slate-500 uppercase font-semibold block truncate">
+          <span class="sm:hidden">Solde initial</span>
+          <span class="hidden sm:inline">Init.</span>
+        </span>
+        {% include "budget/components/amount.html" with amount=totals.initial custom_class="text-xs sm:text-[10px]" %}
+      </div>
+
+      <!-- Étape 2 -->
+      <div class="flex items-center justify-between sm:block p-2 sm:p-0 bg-slate-900/50 sm:bg-transparent rounded-lg"
+           title="Solde estimé après déduction des charges fixes">
+        <span class="text-[10px] sm:text-[9px] text-slate-500 uppercase font-semibold block truncate">
+          <span class="sm:hidden">Après charges fixes</span>
+          <span class="hidden sm:inline">Fixes</span>
+        </span>
+        {% include "budget/components/amount.html" with amount=totals.after_recurring custom_class="text-xs sm:text-[10px]" %}
+      </div>
+
+      <!-- Étape 3 -->
+      <div class="flex items-center justify-between sm:block p-2 sm:p-0 bg-slate-900/50 sm:bg-transparent rounded-lg"
+           title="Solde estimé après déduction des charges variables">
+        <span class="text-[10px] sm:text-[9px] text-slate-500 uppercase font-semibold block truncate">
+          <span class="sm:hidden">Après variables</span>
+          <span class="hidden sm:inline">Var.</span>
+        </span>
+        {% include "budget/components/amount.html" with amount=totals.after_variables custom_class="text-xs sm:text-[10px]" %}
+      </div>
+
+      <!-- Étape 4 -->
+      <div class="flex items-center justify-between sm:block p-2 sm:p-0 bg-slate-900/50 sm:bg-transparent rounded-lg"
+           title="Solde estimé après transfert vers l'épargne">
+        <span class="text-[10px] sm:text-[9px] text-slate-500 uppercase font-semibold block truncate">
+          <span class="sm:hidden">Après épargne</span>
+          <span class="hidden sm:inline">Épargne</span>
+        </span>
+        {% include "budget/components/amount.html" with amount=totals.after_savings custom_class="text-xs sm:text-[10px]" %}
+      </div>
+
+      <!-- Étape 5 -->
+      <div class="flex items-center justify-between sm:block p-2 sm:p-0 rounded-lg border sm:border-0 sm:bg-transparent {% if totals.after_incomes < 0 %} bg-action-danger/10 border-action-danger/20 {% elif totals.after_incomes > 0 %} bg-brand/5 border-brand/20 {% else %} bg-slate-800/50 border-slate-700/50 {% endif %}"
+           title="Solde final estimé après ajout des revenus">
+
+        <span class="text-[10px] sm:text-[9px] uppercase font-semibold block truncate {% if totals.after_incomes < 0 %} text-action-danger {% elif totals.after_incomes > 0 %} text-brand {% else %} text-slate-500 {% endif %}">
+          <span class="sm:hidden">Après revenus</span>
+          <span class="hidden sm:inline">Final</span>
+        </span>
+
+        {% include "budget/components/amount.html" with amount=totals.after_incomes custom_class="text-xs sm:text-[10px]" %}
+      </div>
     </div>
   </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const canvas = document.getElementById('lineChart-{{ account.id }}');
-      if (!canvas) return;
 
-      const initial = parseFloat("{{ totals.initial|default:0 }}");
-      const afterFixed = parseFloat("{{ totals.after_recurring|default:0 }}");
-      const afterVar = parseFloat("{{ totals.after_variables|default:0 }}");
-      const afterSavings = parseFloat("{{ totals.after_savings|default:0 }}");
-      const afterIncomes = parseFloat("{{ totals.after_incomes|default:0 }}");
+  <script>
+    // Fonction anonyme qui s'exécute immédiatement dès l'injection par HTMX
+    // Cela supprime le besoin d'attendre DOMContentLoaded et contourne l'erreur du Linter
+    (function() {
+      const canvasId = 'lineChart-{{ account.id }}';
+      const canvas = document.getElementById(canvasId);
+      
+      // Sécurité : ne pas redessiner si le canvas n'existe pas ou est déjà dessiné
+      if (!canvas || canvas.dataset.rendered === "true") return;
+      canvas.dataset.rendered = "true";
+
+      const initial = parseFloat("{{ totals.initial|default:0 }}".replace(',', '.'));
+      const afterFixed = parseFloat("{{ totals.after_recurring|default:0 }}".replace(',', '.'));
+      const afterVar = parseFloat("{{ totals.after_variables|default:0 }}".replace(',', '.'));
+      const afterSavings = parseFloat("{{ totals.after_savings|default:0 }}".replace(',', '.'));
+      const afterIncomes = parseFloat("{{ totals.after_incomes|default:0 }}".replace(',', '.'));
 
       // Couleur de la ligne et du fond selon que le solde final soit négatif ou positif
       const isNegative = afterIncomes < 0;
@@ -143,6 +187,6 @@
           }
         }
       });
-    });
+    })();
   </script>
 {% endblock %}
