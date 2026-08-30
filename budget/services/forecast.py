@@ -1,4 +1,3 @@
-import calendar
 import datetime
 from collections import defaultdict
 from decimal import Decimal

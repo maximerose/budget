@@ -2,7 +2,6 @@
 {% block card_body %}
   <div class="flex items-center justify-between pb-3 border-b border-brand-border">
     {% include "budget/components/heading.html" with title="Charges Fixes du Mois" level="3" %}
-    <span class="text-xs text-brand hover:underline cursor-pointer font-medium">Voir tout</span>
   </div>
   <div class="divide-y divide-brand-border">
     {% for item in recurring_expenses %}

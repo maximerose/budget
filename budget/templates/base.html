@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr" class="h-full bg-brand-dark text-slate-100">
+<html lang="fr" class="bg-brand-dark text-slate-100">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,31 +10,35 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   </head>
 
-  <body class="h-full flex flex-col font-sans antialiased selection:bg-brand selection:text-white"
+  <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-brand selection:text-white"
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
     {% if request.user.is_authenticated %}
-      <!-- Top Navigation Bar -->
-      <header class="sticky top-0 z-40 bg-brand-card/80 backdrop-blur-md border-b border-brand-border">
+      <!-- Top Navigation Bar (Verrouillée en FIXED) -->
+      <header class="fixed top-0 left-0 right-0 z-40 bg-brand-card/90 backdrop-blur-md border-b border-brand-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <!-- Logo -->
-            <a href="{% url 'dashboard' %}" class="flex items-center gap-3">
-              <div class="w-9 h-9 bg-brand rounded-xl flex items-center justify-center font-bold text-brand-dark shadow-lg shadow-emerald-500/20">
+          <div class="flex items-center justify-between h-16 gap-2">
+
+            <!-- Logo & Titre (Se réduisent au scroll sur mobile) -->
+            <a href="{% url 'dashboard' %}"
+               id="brand-logo"
+               class="flex items-center gap-2 shrink-0 transition-all duration-300 origin-left">
+              <div class="w-8 h-8 sm:w-9 sm:h-9 bg-brand rounded-xl flex items-center justify-center font-bold text-brand-dark shadow-lg shadow-emerald-500/20 text-sm sm:text-base">
                 €
               </div>
-              <span class="font-bold text-lg text-slate-100 tracking-tight">Mon Budget</span>
+              <span class="font-bold text-base sm:text-lg text-slate-100 tracking-tight hidden xs:inline sm:inline">Mon Budget</span>
             </a>
-            <div class="flex flex-1 justify-end max-w-[60%] sm:max-w-sm ml-4">
-              {% include "budget/components/month_selector.html" %}
-            </div>
+
+            <!-- Sélecteur de Mois (Prend toute la place sur mobile) -->
+            <div class="flex-1 w-full sm:max-w-sm sm:ml-4">{% include "budget/components/month_selector.html" %}</div>
+
           </div>
         </div>
       </header>
     {% endif %}
 
-    <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Main Content Container (pt-20/pt-24 décale le contenu sous le header fixe) -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-20{% else %}py-6{% endif %}">
       {% block content %}{% endblock %}
     </main>
 
@@ -74,5 +78,33 @@
 
     <!-- Conteneur pour Modales -->
     <div id="modal-container"></div>
+
+    <!-- Script JS pour masquer le logo au scroll sur mobile -->
+    <script>
+      (function() {
+        const logo = document.getElementById('brand-logo');
+        if (!logo) return;
+
+        window.addEventListener('scroll', function() {
+          if (window.innerWidth < 640) {
+            if (window.scrollY > 20) {
+              logo.style.transform = 'scale(0)';
+              logo.style.width = '0px';
+              logo.style.marginRight = '0px';
+              logo.style.opacity = '0';
+            } else {
+              logo.style.transform = 'scale(1)';
+              logo.style.width = 'auto';
+              logo.style.marginRight = '';
+              logo.style.opacity = '1';
+            }
+          } else {
+            logo.style.transform = '';
+            logo.style.width = '';
+            logo.style.opacity = '';
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
