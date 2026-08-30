@@ -56,6 +56,16 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
             return f"{self.name} (@{self.user.username})"
         return self.name
 
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        #  Si ce compte est défini par défaut, on retire le flag aux autres comptes du même propriétaire
+        if self.is_default:
+            BankAccount.objects.filter(owner=self.owner, is_default=True).exclude(
+                pk=self.pk
+            ).update(is_default=False)
+
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Membre du foyer"
         verbose_name_plural = "Membres du foyer"

@@ -1,14 +1,245 @@
 <form hx-post="{% url 'quick_expense_form' %}"
       hx-target="#modal-container"
       hx-swap="innerHTML"
-      id="quick-expense-form"
-      class="space-y-4">
+      id="quick-expense-form">
     {% csrf_token %}
-    {% include "budget/components/input.html" with label="Montant (€)" type="number" name="total_amount" step="0.01" placeholder="0,00" required=True autofocus=True %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {% include "budget/components/select.html" with label="Catégorie" name="category" options=categories required=True %}
-        {% include "budget/components/select.html" with label="Compte Débité" name="bank_account" options=accounts required=True %}
+
+    <!-- 1. Onglets de sélection (Dépense / Revenu / Transfert) -->
+    <div class="flex p-1 bg-slate-900 rounded-xl mb-6 shadow-inner">
+        <label class="flex-1 cursor-pointer">
+            <input type="radio" name="tx_type" value="EXPENSE" class="peer hidden" checked onchange="toggleTxType()" />
+            <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-action-danger/20 peer-checked:text-action-danger transition-all">Dépense</div>
+        </label>
+        <label class="flex-1 cursor-pointer">
+            <input type="radio" name="tx_type" value="INCOME" class="peer hidden" onchange="toggleTxType()" />
+            <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-budget-income/20 peer-checked:text-budget-income transition-all">Revenu</div>
+        </label>
+        <label class="flex-1 cursor-pointer">
+            <input type="radio" name="tx_type" value="TRANSFER" class="peer hidden" onchange="toggleTxType()" />
+            <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-budget-initial/20 peer-checked:text-budget-initial transition-all">Transfert</div>
+        </label>
     </div>
-    {% include "budget/components/input.html" with label="Date de la transaction" type="date" name="transaction_date" value=today|date:'Y-m-d' required=True %}
-    {% include "budget/components/input.html" with label="Libellé / Commentaire (optionnel)" name="label" placeholder="Ex: Courses Leclerc, Matelas trek..." %}
+
+    <!-- 2. Saisie du Montant -->
+    <div class="mb-6 border-b border-brand-border/60 pb-6">
+        <input type="number"
+               name="total_amount"
+               step="0.01"
+               class="w-full bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none"
+               placeholder="0,00 €"
+               required
+               autofocus />
+        <p id="refund-hint" class="text-center text-xs text-slate-500 mt-2 transition-colors">
+            💡 Saisissez un montant négatif pour un remboursement.
+        </p>
+    </div>
+
+    <!-- 3. Blocs de champs dynamiques (Gérés via JS) -->
+    <div id="block-expense">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense %}
+            {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id %}
+        </div>
+
+        <!-- Section Tickets Resto -->
+        {% if tr_accounts_info %}
+            <div id="meal-voucher-wrapper"
+                 class="hidden mt-4 p-3 bg-slate-900/50 rounded-xl border border-brand-border">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox"
+                           id="use_meal_voucher"
+                           class="rounded border-slate-600 bg-slate-900 focus:ring-1 focus:ring-offset-0 focus:ring-offset-transparent text-brand"
+                           onchange="toggleMealVoucherAmount()" />
+                    <span class="text-sm font-medium text-slate-200">Régler avec Tickets Resto</span>
+                </label>
+
+                <div id="meal-voucher-details"
+                     class="hidden pl-7 pt-3 mt-1 space-y-3 border-l-2 border-brand-border/60 ml-2">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Carte utilisée</label>
+                        <select id="meal_voucher_account_id"
+                                name="meal_voucher_account_id"
+                                class="input-base px-3 py-1.5 text-sm"
+                                onchange="updateTrMax()">
+                            {% for tr in tr_accounts_info %}
+                                <option value="{{ tr.id }}">{{ tr.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Montant déduit (TR)</label>
+                            <span id="tr-max-label" class="text-[10px] text-slate-400 font-bold"></span>
+                        </div>
+                        <input type="number"
+                               id="meal_voucher_amount"
+                               name="meal_voucher_amount"
+                               step="0.01"
+                               class="input-base px-3 py-1.5 text-sm font-bold text-brand" />
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="block-income" class="hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income %}
+            {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
+        </div>
+    </div>
+
+    <div id="block-transfer" class="hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id %}
+            {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts %}
+        </div>
+    </div>
+
+    <!-- 4. Champs Communs -->
+    <div class="mt-4 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Date</label>
+                <input type="date"
+                       name="transaction_date"
+                       value="{{ today|date:'Y-m-d' }}"
+                       class="input-base px-3 py-2 text-sm"
+                       required />
+            </div>
+
+            <div id="imputation-wrapper">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Imputation</label>
+                <div class="flex gap-1 h-9.5">
+                    <label class="flex-1 cursor-pointer h-full">
+                        <input type="radio" name="budget_shift" value="-1" class="peer hidden" />
+                        <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">M-1</div>
+                    </label>
+                    <label class="flex-1 cursor-pointer h-full">
+                        <input type="radio" name="budget_shift" value="0" class="peer hidden" checked />
+                        <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">Ce mois</div>
+                    </label>
+                    <label class="flex-1 cursor-pointer h-full">
+                        <input type="radio" name="budget_shift" value="1" class="peer hidden" />
+                        <div class="h-full flex items-center justify-center border border-slate-700 rounded-lg text-xs font-bold text-slate-400 peer-checked:border-brand peer-checked:text-brand peer-checked:bg-brand/10 transition-colors">M+1</div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <input type="text"
+               name="label"
+               class="input-base px-3 py-2 text-sm"
+               placeholder="Libellé ou commentaire..." />
+    </div>
+
+    <script>
+        const catTrMap = JSON.parse('{{ cat_tr_map|escapejs }}');
+        const trAccountsInfo = JSON.parse('{{ tr_accounts_info_json|escapejs|default:"[]" }}');
+        
+        const amountInput = document.querySelector('#quick-expense-form input[name="total_amount"]');
+        const refundHint = document.getElementById('refund-hint');
+        const trWrapper = document.getElementById('meal-voucher-wrapper');
+        const trCheckbox = document.getElementById('use_meal_voucher');
+        const trDetails = document.getElementById('meal-voucher-details');
+        const trAmountInput = document.getElementById('meal_voucher_amount');
+        const trAccountSelect = document.getElementById('meal_voucher_account_id');
+        const trMaxLabel = document.getElementById('tr-max-label');
+        const expenseAccountSelect = document.querySelector('select[name="expense_account"]');
+        const categorySelect = document.querySelector('select[name="expense_category"]');
+        
+        function getSelectedTrAccount() {
+            if (!trAccountSelect || !trAccountsInfo.length) return null;
+            return trAccountsInfo.find(acc => acc.id === trAccountSelect.value);
+        }
+
+        function updateTrMax() {
+            const trAcc = getSelectedTrAccount();
+            if (!trAcc) return;
+            
+            // Maj du label de plafond
+            trMaxLabel.textContent = `Max dispo: ${trAcc.remaining.toFixed(2)} €`;
+            
+            // Auto-calcul du montant pris sur la carte TR
+            const total = parseFloat(amountInput.value) || 0;
+            const suggested = Math.max(0, Math.min(total, trAcc.remaining));
+            trAmountInput.value = suggested > 0 ? suggested.toFixed(2) : "";
+            
+            // AUTO-SELECTION DU COMPTE RELAI
+            if (trAcc.fallback_id && expenseAccountSelect) {
+                expenseAccountSelect.value = trAcc.fallback_id;
+            }
+        }
+  
+        function updateTrVisibility() {
+            if (!trWrapper) return;
+            const txType = document.querySelector('input[name="tx_type"]:checked').value;
+            const catId = categorySelect.value;
+            const isEligible = catTrMap[catId] === true;
+            
+            // Afficher l'encart si : Dépense + Éligible + Au moins un compte a du solde
+            const hasTrBalance = trAccountsInfo.some(acc => acc.remaining > 0);
+            
+            if (txType === 'EXPENSE' && isEligible && hasTrBalance) {
+                trWrapper.classList.remove('hidden');
+            } else {
+                trWrapper.classList.add('hidden');
+                if (trCheckbox) {
+                    trCheckbox.checked = false;
+                    toggleMealVoucherAmount();
+                }
+            }
+        }
+  
+        function toggleMealVoucherAmount() {
+            if (!trCheckbox) return;
+            if (trCheckbox.checked) {
+                trDetails.classList.remove('hidden');
+                updateTrMax();
+            } else {
+                trDetails.classList.add('hidden');
+                trAmountInput.value = "";
+            }
+        }
+  
+        function toggleTxType() {
+            const type = document.querySelector('input[name="tx_type"]:checked').value;
+            document.getElementById('block-expense').classList.toggle('hidden', type !== 'EXPENSE');
+            document.getElementById('block-income').classList.toggle('hidden', type !== 'INCOME');
+            document.getElementById('block-transfer').classList.toggle('hidden', type !== 'TRANSFER');
+            
+            document.getElementById('imputation-wrapper').style.opacity = type === 'TRANSFER' ? '0.3' : '1';
+            document.getElementById('imputation-wrapper').style.pointerEvents = type === 'TRANSFER' ? 'none' : 'auto';
+            
+            updateTrVisibility();
+        }
+  
+        // Écouteurs d'événements
+        if (categorySelect) categorySelect.addEventListener('change', updateTrVisibility);
+        
+        if (amountInput) {
+            amountInput.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value) || 0;
+                // 1. UI Remboursement
+                if (refundHint) {
+                    if (val < 0) {
+                        refundHint.innerHTML = "🔄 Mode remboursement activé";
+                        refundHint.classList.replace("text-slate-500", "text-budget-income");
+                        refundHint.classList.add("font-bold");
+                    } else {
+                        refundHint.innerHTML = "💡 Saisissez un montant négatif pour un remboursement.";
+                        refundHint.classList.replace("text-budget-income", "text-slate-500");
+                        refundHint.classList.remove("font-bold");
+                    }
+                }
+                // 2. Mise à jour de la suggestion TR si le montant total change
+                if (trCheckbox && trCheckbox.checked) {
+                    updateTrMax();
+                }
+            });
+        }
+  
+        // Initialisation
+        updateTrVisibility();
+    </script>
 </form>
