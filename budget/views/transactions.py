@@ -83,12 +83,40 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
             budget_month = transaction_date
 
         if tx_type == "TRANSFER":
-            Transfer.objects.create(
-                source_account_id=request.POST.get("source_account"),
-                destination_account_id=request.POST.get("destination_account"),
-                amount=total_amount,
-                date=transaction_date,
-            )
+            source_id = request.POST.get("source_account")
+            dest_id = request.POST.get("destination_account")
+            transfer_category_id = request.POST.get("transfer_category")
+
+            if transfer_category_id:
+                # 1. Remboursement "Catégorisé" (Réaffectation de charge)
+                # L'émetteur de l'argent fait une dépense (+)
+                Transaction.objects.create(
+                    total_amount=total_amount,
+                    label=label or "Remboursement envoyé",
+                    category_id=transfer_category_id,
+                    bank_account_id=source_id,
+                    transaction_date=transaction_date,
+                    budget_month=budget_month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+                # Le récepteur de l'argent annule sa dépense (-)
+                Transaction.objects.create(
+                    total_amount=-total_amount,
+                    label=label or "Remboursement reçu",
+                    category_id=transfer_category_id,
+                    bank_account_id=dest_id,
+                    transaction_date=transaction_date,
+                    budget_month=budget_month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+            else:
+                # 2. Transfert simple d'épargne ou de gestion
+                Transfer.objects.create(
+                    source_account_id=source_id,
+                    destination_account_id=dest_id,
+                    amount=total_amount,
+                    date=transaction_date,
+                )
         else:
             if tx_type == TransactionType.EXPENSE:
                 category_id = request.POST.get("expense_category")
@@ -202,6 +230,7 @@ def transaction_update_view(request, transaction_id: str):
     )
 
     if request.method == "POST":
+        tx_type = request.POST.get("tx_type", "EXPENSE")
         total_amount = Decimal(request.POST.get("total_amount", "0.00"))
         label = request.POST.get("label", "")
         transaction_date_str = request.POST.get("transaction_date")
@@ -220,35 +249,77 @@ def transaction_update_view(request, transaction_id: str):
         else:
             budget_month = transaction_date
 
-        if tx.transaction_type == TransactionType.EXPENSE:
-            category_id = request.POST.get("expense_category")
-            bank_account_id = request.POST.get("expense_account")
+        if tx_type == "TRANSFER":
+            source_id = request.POST.get("source_account")
+            dest_id = request.POST.get("destination_account")
+            transfer_category_id = request.POST.get("transfer_category")
+
+            # La transaction actuelle est modifiée pour devenir un transfert (ou 2 transactions)
+            # On la supprime donc proprement (les signaux restaureront les soldes)
+            tx.delete()
+
+            if transfer_category_id:
+                # 1. Remboursement "Catégorisé" (Réaffectation de charge)
+                Transaction.objects.create(
+                    total_amount=total_amount,
+                    label=label or "Remboursement envoyé",
+                    category_id=transfer_category_id,
+                    bank_account_id=source_id,
+                    transaction_date=transaction_date,
+                    budget_month=budget_month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+                Transaction.objects.create(
+                    total_amount=-total_amount,
+                    label=label or "Remboursement reçu",
+                    category_id=transfer_category_id,
+                    bank_account_id=dest_id,
+                    transaction_date=transaction_date,
+                    budget_month=budget_month,
+                    transaction_type=TransactionType.EXPENSE,
+                )
+            else:
+                # 2. Transfert simple d'épargne ou de gestion
+                Transfer.objects.create(
+                    source_account_id=source_id,
+                    destination_account_id=dest_id,
+                    amount=total_amount,
+                    date=transaction_date,
+                )
         else:
-            category_id = request.POST.get("income_category")
-            bank_account_id = request.POST.get("income_account")
+            if tx_type == TransactionType.EXPENSE:
+                category_id = request.POST.get("expense_category")
+                bank_account_id = request.POST.get("expense_account")
+                db_tx_type = TransactionType.EXPENSE
+            else:
+                category_id = request.POST.get("income_category")
+                bank_account_id = request.POST.get("income_account")
+                db_tx_type = TransactionType.INCOME
 
-        meal_voucher_amount = Decimal(request.POST.get("meal_voucher_amount") or "0.00")
-        meal_voucher_account_id = request.POST.get("meal_voucher_account_id")
+            meal_voucher_amount = Decimal(
+                request.POST.get("meal_voucher_amount") or "0.00"
+            )
+            meal_voucher_account_id = request.POST.get("meal_voucher_account_id")
 
-        tx.total_amount = total_amount
-        tx.label = label
-        tx.category_id = category_id
-        tx.bank_account_id = bank_account_id
-        tx.transaction_date = transaction_date
-        tx.budget_month = budget_month
-        tx.meal_voucher_amount = (
-            meal_voucher_amount
-            if tx.transaction_type == TransactionType.EXPENSE
-            else Decimal("0.00")
-        )
-        tx.meal_voucher_bank_account_id = (
-            meal_voucher_account_id
-            if meal_voucher_amount > 0
-            and tx.transaction_type == TransactionType.EXPENSE
-            else None
-        )
+            tx.transaction_type = db_tx_type
+            tx.total_amount = total_amount
+            tx.label = label
+            tx.category_id = category_id
+            tx.bank_account_id = bank_account_id
+            tx.transaction_date = transaction_date
+            tx.budget_month = budget_month
+            tx.meal_voucher_amount = (
+                meal_voucher_amount
+                if db_tx_type == TransactionType.EXPENSE
+                else Decimal("0.00")
+            )
+            tx.meal_voucher_bank_account_id = (
+                meal_voucher_account_id
+                if meal_voucher_amount > 0 and db_tx_type == TransactionType.EXPENSE
+                else None
+            )
 
-        tx.save()
+            tx.save()
 
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
@@ -299,7 +370,6 @@ def transaction_update_view(request, transaction_id: str):
 
     cat_tr_map = {str(c.id): c.is_meal_voucher_eligible for c in categories_expense}
 
-    # Calcul du budget_shift pour pré-sélectionner l'imputation (M-1, Ce mois, M+1)
     # Calcul du budget_shift pour pré-sélectionner l'imputation (M-1, Ce mois, M+1)
     shift = 0
     if tx.budget_month and tx.transaction_date:

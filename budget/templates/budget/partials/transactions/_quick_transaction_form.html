@@ -30,7 +30,7 @@
         </label>
     </div>
 
-    <!-- 2. Saisie du Montant (Validation linter via w-[4.5ch]) -->
+    <!-- 2. Saisie du Montant -->
     <div class="mb-6 border-b border-brand-border/60 pb-6">
         <div class="flex items-center justify-center gap-1.5 w-full">
             <input type="number"
@@ -112,10 +112,39 @@
         </div>
     </div>
 
-    <div id="block-transfer" class="hidden">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id required=True %}
-            {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts required=True %}
+    <!-- BLOC TRANSFERT -->
+    <div id="block-transfer" class="hidden space-y-3">
+        <!-- Conteneur flex pour inclure le bouton d'inversion -->
+        <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div class="w-full sm:flex-1">
+                {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id required=True %}
+            </div>
+
+            <!-- Bouton Inverser (vertical sur mobile, horizontal sur Desktop) -->
+            <div class="flex justify-center shrink-0 sm:pb-0.5 relative z-10 -my-2 sm:my-0">
+                <button type="button"
+                        onclick="swapTransferAccounts()"
+                        class="p-2 bg-slate-800 border border-slate-700 hover:border-brand hover:bg-brand/10 rounded-full text-slate-400 hover:text-brand transition-all cursor-pointer shadow-sm active:scale-95"
+                        title="Inverser les comptes">
+                    <svg class="w-5 h-5 rotate-90 sm:rotate-0 transition-transform"
+                         fill="none"
+                         stroke="currentColor"
+                         viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="w-full sm:flex-1">
+                {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts required=True %}
+            </div>
+        </div>
+
+        <div class="p-3 bg-slate-900/50 rounded-xl border border-brand-border">
+            {% include "budget/components/select.html" with label="Catégorie (Optionnelle : pour remboursements)" name="transfer_category" options=categories_expense placeholder="Aucune (Transfert classique)" %}
+            <p class="text-[10px] text-slate-500 mt-2 leading-tight">
+                💡 Si vous sélectionnez une catégorie, cela créera automatiquement deux dépenses inversées pour équilibrer vos statistiques. Idéal quand un proche vous rembourse sa part !
+            </p>
         </div>
     </div>
 
@@ -184,6 +213,9 @@
         const expenseAccountSelect = document.querySelector('select[name="expense_account"]');
         const categorySelect = document.querySelector('select[name="expense_category"]');
         const trEmptyMsg = document.getElementById('tr-empty-message');
+
+        const sourceSelect = document.querySelector('select[name="source_account"]');
+        const destSelect = document.querySelector('select[name="destination_account"]');
         
         function autoResizeAmount() {
             if (!amountInput) return;
@@ -251,12 +283,57 @@
                 trAmountInput.value = "";
             }
         }
+
+        function updateTransferAccounts() {
+            if (!sourceSelect || !destSelect) return;
+            
+            const sourceVal = sourceSelect.value;
+            const destVal = destSelect.value;
+
+            for (let opt of destSelect.options) {
+                if (opt.value !== "" && opt.value === sourceVal) {
+                    opt.disabled = true;
+                } else {
+                    opt.disabled = false;
+                }
+            }
+
+            for (let opt of sourceSelect.options) {
+                if (opt.value !== "" && opt.value === destVal) {
+                    opt.disabled = true;
+                } else {
+                    opt.disabled = false;
+                }
+            }
+        }
+
+        // --- NOUVELLE FONCTION : Échanger les deux comptes ---
+        function swapTransferAccounts() {
+            if (!sourceSelect || !destSelect) return;
+            
+            const tempSource = sourceSelect.value;
+            const tempDest = destSelect.value;
+
+            // Débloquer temporairement toutes les options pour pouvoir assigner les valeurs
+            for (let opt of sourceSelect.options) opt.disabled = false;
+            for (let opt of destSelect.options) opt.disabled = false;
+
+            sourceSelect.value = tempDest;
+            destSelect.value = tempSource;
+
+            // Réappliquer la logique de blocage après l'échange
+            updateTransferAccounts();
+        }
   
         function toggleTxType() {
             const type = document.querySelector('input[name="tx_type"]:checked').value;
             document.getElementById('block-expense').classList.toggle('hidden', type !== 'EXPENSE');
             document.getElementById('block-income').classList.toggle('hidden', type !== 'INCOME');
             document.getElementById('block-transfer').classList.toggle('hidden', type !== 'TRANSFER');
+            
+            if (refundHint) {
+                refundHint.style.display = type === 'EXPENSE' ? 'block' : 'none';
+            }
             
             document.getElementById('imputation-wrapper').style.opacity = type === 'TRANSFER' ? '0.3' : '1';
             document.getElementById('imputation-wrapper').style.pointerEvents = type === 'TRANSFER' ? 'none' : 'auto';
@@ -288,10 +365,13 @@
             });
         }
 
+        if (sourceSelect) sourceSelect.addEventListener('change', updateTransferAccounts);
+        if (destSelect) destSelect.addEventListener('change', updateTransferAccounts);
+
         const isEditMode = "{{ transaction|yesno:'true,false' }}" === "true";
   
-        // Initialisation
         autoResizeAmount();
+        updateTransferAccounts();
 
         if (isEditMode) {
             toggleTxType();

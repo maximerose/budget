@@ -47,6 +47,7 @@
     --font-weight-extrabold: 800;
     --tracking-tight: -0.025em;
     --tracking-wider: 0.05em;
+    --leading-tight: 1.25;
     --radius-md: 0.375rem;
     --radius-lg: 0.5rem;
     --radius-xl: 0.75rem;
@@ -324,6 +325,9 @@
   .mx-auto {
     margin-inline: auto;
   }
+  .-my-2 {
+    margin-block: calc(var(--spacing) * -2);
+  }
   .my-4 {
     margin-block: calc(var(--spacing) * 4);
   }
@@ -464,9 +468,6 @@
   .w-1 {
     width: var(--spacing);
   }
-  .w-1\/2 {
-    width: calc(1 / 2 * 100%);
-  }
   .w-3 {
     width: calc(var(--spacing) * 3);
   }
@@ -496,9 +497,6 @@
   }
   .w-16 {
     width: calc(var(--spacing) * 16);
-  }
-  .w-45 {
-    width: calc(var(--spacing) * 45);
   }
   .w-\[4\.5ch\] {
     width: 4.5ch;
@@ -535,6 +533,9 @@
     --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
+  .rotate-90 {
+    rotate: 90deg;
+  }
   .transform {
     transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
   }
@@ -549,9 +550,6 @@
   }
   .snap-center {
     scroll-snap-align: center;
-  }
-  .appearance-none {
-    appearance: none;
   }
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -579,12 +577,6 @@
   }
   .justify-center {
     justify-content: center;
-  }
-  .justify-end {
-    justify-content: flex-end;
-  }
-  .justify-start {
-    justify-content: flex-start;
   }
   .gap-1 {
     gap: var(--spacing);
@@ -1222,9 +1214,6 @@
   .pb-20 {
     padding-bottom: calc(var(--spacing) * 20);
   }
-  .pl-1 {
-    padding-left: var(--spacing);
-  }
   .pl-3 {
     padding-left: calc(var(--spacing) * 3);
   }
@@ -1276,6 +1265,10 @@
   }
   .text-\[11px\] {
     font-size: 11px;
+  }
+  .leading-tight {
+    --tw-leading: var(--leading-tight);
+    line-height: var(--leading-tight);
   }
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);
@@ -1480,6 +1473,11 @@
   }
   .transition-opacity {
     transition-property: opacity;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .transition-transform {
+    transition-property: transform, translate, scale, rotate;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
@@ -1688,6 +1686,9 @@
     scale: var(--tw-scale-x) var(--tw-scale-y);
   }
   @media (width >= 40rem) {
+    .sm\:my-0 {
+      margin-block: 0px;
+    }
     .sm\:ml-4 {
       margin-left: calc(var(--spacing) * 4);
     }
@@ -1712,9 +1713,6 @@
     .sm\:w-9 {
       width: calc(var(--spacing) * 9);
     }
-    .sm\:w-55 {
-      width: calc(var(--spacing) * 55);
-    }
     .sm\:w-auto {
       width: auto;
     }
@@ -1724,11 +1722,17 @@
     .sm\:max-w-sm {
       max-width: var(--container-sm);
     }
+    .sm\:flex-1 {
+      flex: 1;
+    }
     .sm\:flex-none {
       flex: none;
     }
     .sm\:shrink-0 {
       flex-shrink: 0;
+    }
+    .sm\:rotate-0 {
+      rotate: 0deg;
     }
     .sm\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1741,6 +1745,9 @@
     }
     .sm\:items-center {
       align-items: center;
+    }
+    .sm\:items-end {
+      align-items: flex-end;
     }
     .sm\:gap-1 {
       gap: var(--spacing);
@@ -1786,11 +1793,8 @@
     .sm\:pt-24 {
       padding-top: calc(var(--spacing) * 24);
     }
-    .sm\:pr-2 {
-      padding-right: calc(var(--spacing) * 2);
-    }
-    .sm\:pl-2 {
-      padding-left: calc(var(--spacing) * 2);
+    .sm\:pb-0\.5 {
+      padding-bottom: calc(var(--spacing) * 0.5);
     }
     .sm\:text-center {
       text-align: center;
@@ -1990,6 +1994,10 @@
   inherits: false;
   initial-value: 100%;
 }
+@property --tw-leading {
+  syntax: "*";
+  inherits: false;
+}
 @property --tw-font-weight {
   syntax: "*";
   inherits: false;
@@ -2147,6 +2155,7 @@
       --tw-gradient-from-position: 0%;
       --tw-gradient-via-position: 50%;
       --tw-gradient-to-position: 100%;
+      --tw-leading: initial;
       --tw-font-weight: initial;
       --tw-tracking: initial;
       --tw-shadow: 0 0 #0000;
