@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone
 
 from budget.models.recurring import RecurringExpense
-from core.models import BaseModel, SoftDeleteModel
+from core.models import BaseModel, SoftDeleteModel, Visibility
 
 from .account import AccountType, BankAccount, HouseholdMember
 from .category import Category, CategoryType
@@ -59,6 +59,12 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
         blank=True,
         verbose_name="Charge fixe (Exception mensuelle)",
     )
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.SHARED,
+        verbose_name="Visibilité",
+    )
 
     def __str__(self) -> str:
         if self.category:
@@ -93,4 +99,8 @@ class MonthlyForecast(BaseModel, SoftDeleteModel):
                 name="unique_monthly_category_forecast_per_member",
             )
         ]
-        ordering: ClassVar[list[str]] = ["-month", "category__name", "bank_account__name"]
+        ordering: ClassVar[list[str]] = [
+            "-month",
+            "category__name",
+            "bank_account__name",
+        ]

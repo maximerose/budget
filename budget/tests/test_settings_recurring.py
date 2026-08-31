@@ -9,10 +9,10 @@ from budget.models.account import (
     BankAccount,
     Household,
     HouseholdMember,
-    Visibility,
 )
 from budget.models.category import Category, CategoryType
 from budget.models.recurring import RecurringExpense
+from core.models import Visibility
 
 User = get_user_model()
 

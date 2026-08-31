@@ -17,7 +17,7 @@ from budget.models import (
 )
 from budget.models.account import Household
 from budget.models.category import CategoryType
-from budget.utils import calculate_budget_month
+from budget.utils import calculate_budget_month, get_remaining_meal_voucher_ceiling
 
 
 class TransactionAndTransferTestCase(TestCase):
@@ -154,8 +154,6 @@ class TransactionAndTransferTestCase(TestCase):
         self.assertEqual(current_budget_month, ref_date)
 
     def test_get_remaining_meal_voucher_ceiling_per_account(self) -> None:
-        from budget.utils import get_remaining_meal_voucher_ceiling
-
         # Création d'un compte Swile dédié pour le test
         tr_account = BankAccount.objects.create(
             name="Swile Principal",
@@ -186,7 +184,8 @@ class TransactionAndTransferTestCase(TestCase):
             total_amount=Decimal("30.00"),
             meal_voucher_amount=Decimal("10.00"),
             category=eligible_cat,
-            bank_account=tr_account,
+            bank_account=self.bank_account,
+            meal_voucher_bank_account=tr_account,
             transaction_date=today,
             transaction_type=TransactionType.EXPENSE,
         )
@@ -209,7 +208,7 @@ class TransactionAndTransferTestCase(TestCase):
 
         eligible_cat = Category.objects.create(
             name="Courses",
-            type=CategoryType.VARIABLE, 
+            type=CategoryType.VARIABLE,
             is_meal_voucher_eligible=True,
             household=self.household,
         )

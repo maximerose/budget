@@ -7,8 +7,8 @@ from django.shortcuts import get_object_or_404, render
 
 from budget.forms import BankAccountForm
 from budget.models import BankAccount, HouseholdMember
-from budget.models.account import Visibility
 from budget.utils import htmx_login_required
+from core.models import Visibility
 
 
 @login_required

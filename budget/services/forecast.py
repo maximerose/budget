@@ -13,12 +13,12 @@ from budget.models import (
     Transaction,
     TransactionType,
 )
-from budget.models.account import Visibility
 from budget.models.category import CategoryType
 from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense, RecurringExpenseStatus
 from budget.models.transaction import Transfer
 from budget.utils import advance_date
+from core.models import Visibility
 
 
 def get_target_account_for_expense(

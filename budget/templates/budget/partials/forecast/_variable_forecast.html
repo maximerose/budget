@@ -2,19 +2,24 @@
 
 {% block card_body %}
   <div class="pb-3 border-b border-brand-border">
-    {% include "budget/components/heading.html" with title="Estimations Charges variables restantes" level="3" %}
+    {% include "budget/components/heading.html" with title="Estimations Charges variables" level="3" %}
   </div>
 
   <div class="divide-y divide-brand-border/60">
-    {% for env in variable_forecasts %}
+    {% for forecast in variable_forecasts %}
       <div class="py-2.5 flex items-center justify-between text-sm">
         <div>
-          <p class="font-semibold text-slate-200">{{ env.category.name }}</p>
+          <p class="font-semibold text-slate-200">
+            {{ forecast.category.name }}
+            {% if forecast.member.id != member.id %}
+              <span class="text-[10px] text-slate-400 font-normal ml-1">({{ forecast.member.name }})</span>
+            {% endif %}
+          </p>
           <p class="text-[11px] text-slate-500">
-            Dépensé : {{ env.realized_amount|floatformat:"2g" }} € / {{ env.budget_amount|floatformat:"2g" }} €
+            Dépensé : {{ forecast.realized_amount|floatformat:"2g" }} € / {{ forecast.budget_amount|floatformat:"2g" }} €
           </p>
         </div>
-        {% include "budget/components/amount.html" with amount=env.remaining_amount custom_class="text-sm font-bold" %}
+        {% include "budget/components/amount.html" with amount=forecast.remaining_amount custom_class="text-sm font-bold" %}
       </div>
     {% empty %}
       <p class="text-xs text-slate-500 py-3 text-center">Aucune prévision de charges variables configurée pour ce mois.</p>

@@ -4,6 +4,11 @@ from django.conf import settings
 from django.db import models
 
 
+class Visibility(models.TextChoices):
+    PRIVATE = "PRIVATE", "Privé"
+    SHARED = "SHARED", "Partagé"
+
+
 class BaseModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from budget.models import BankAccount, HouseholdMember
-from budget.models.account import AccountType, Visibility
+from budget.models.account import AccountType
 from budget.models.category import CategoryType
 from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense
@@ -21,6 +21,7 @@ from budget.services.forecast import (
     get_target_account_for_expense,
 )
 from budget.utils import get_target_month_from_request, htmx_login_required
+from core.models import Visibility
 
 
 @login_required
@@ -63,17 +64,19 @@ def dashboard_view(request: Request) -> HttpResponse:
 
         # 3. Enveloppes des charges variables restantes par catégorie
         category_forecasts = MonthlyForecast.objects.filter(
+            Q(member=member) | Q(visibility=Visibility.SHARED),
             member__household=household,
             month__year=today.year,
             month__month=today.month,
             category__isnull=False,
             category__type=CategoryType.VARIABLE,
             is_active=True,
-        ).select_related("category")
+        ).select_related("category", "member")
 
         for forecast in category_forecasts:
             category = forecast.category
             realized = Transaction.objects.filter(
+                bank_account__owner=forecast.member,
                 bank_account__in=accounts,
                 category=category,
                 recurring_expense__isnull=True,
@@ -86,6 +89,7 @@ def dashboard_view(request: Request) -> HttpResponse:
             variable_forecasts.append(
                 {
                     "category": category,
+                    "member": forecast.member,
                     "budget_amount": forecast.amount,
                     "realized_amount": realized,
                     "remaining_amount": remaining,
@@ -94,17 +98,19 @@ def dashboard_view(request: Request) -> HttpResponse:
 
         # 4. Enveloppes d'épargne restantes
         savings_qs = MonthlyForecast.objects.filter(
+            Q(member=member) | Q(visibility=Visibility.SHARED),
             member__household=household,
             month__year=today.year,
             month__month=today.month,
             bank_account__isnull=False,
             bank_account__account_type=AccountType.SAVINGS,
             is_active=True,
-        ).select_related("bank_account")
+        ).select_related("bank_account", "member")
 
         for forecast in savings_qs:
             target_account = forecast.bank_account
             realized_transfers = Transfer.objects.filter(
+                source_account__owner=forecast.member,
                 destination_account=target_account,
                 source_account__in=accounts,
                 date__year=today.year,
@@ -125,6 +131,7 @@ def dashboard_view(request: Request) -> HttpResponse:
             savings_forecasts.append(
                 {
                     "account": target_account,
+                    "member": forecast.member,
                     "budget_amount": forecast.amount,
                     "realized_amount": realized,
                     "remaining_amount": remaining,

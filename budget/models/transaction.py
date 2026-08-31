@@ -83,7 +83,16 @@ class Transaction(BaseModel):
 
     def __str__(self) -> str:
         sign = "+" if self.transaction_type == TransactionType.INCOME else "-"
-        return f"[{self.get_transaction_type_display()}] {self.transaction_date} - {self.category.name}: {sign}{self.total_amount} € ({self.label})"
+
+        # On gère le cas où la catégorie est nulle
+        if self.category:
+            target_name = self.category.name
+        elif self.recurring_expense:
+            target_name = self.recurring_expense.label
+        else:
+            target_name = "Sans catégorie"
+
+        return f"[{self.get_transaction_type_display()}] {self.transaction_date} - {target_name}: {sign}{self.total_amount} € ({self.label})"
 
     def clean(self) -> None:
         super().clean()

@@ -9,12 +9,7 @@ from django.db import models
 from django.db.models import Case, Value, When
 from django.utils import timezone
 
-from core.models import BaseModel, SoftDeleteModel
-
-
-class Visibility(models.TextChoices):
-    PRIVATE = "PRIVATE", "Privé"
-    SHARED = "SHARED", "Partagé"
+from core.models import BaseModel, SoftDeleteModel, Visibility
 
 
 class Household(BaseModel, SoftDeleteModel):
@@ -55,16 +50,6 @@ class HouseholdMember(BaseModel, SoftDeleteModel):
         if self.user:
             return f"{self.name} (@{self.user.username})"
         return self.name
-
-    def save(self, *args, **kwargs) -> None:
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-        #  Si ce compte est défini par défaut, on retire le flag aux autres comptes du même propriétaire
-        if self.is_default:
-            BankAccount.objects.filter(owner=self.owner, is_default=True).exclude(
-                pk=self.pk
-            ).update(is_default=False)
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Membre du foyer"
@@ -189,6 +174,12 @@ class BankAccount(BaseModel, SoftDeleteModel):
     def save(self, *args, **kwargs) -> None:
         self.full_clean()
         super().save(*args, **kwargs)
+
+        #  Si ce compte est défini par défaut, on retire le flag aux autres comptes du même propriétaire
+        if self.is_default:
+            BankAccount.objects.filter(owner=self.owner, is_default=True).exclude(
+                pk=self.pk
+            ).update(is_default=False)
 
     class Meta(BaseModel.Meta, SoftDeleteModel.Meta):
         verbose_name = "Compte bancaire"

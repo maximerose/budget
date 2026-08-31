@@ -52,6 +52,8 @@ class TransactionViewsTestCase(TestCase):
             "label": "Boulangerie",
             "category": str(self.category.id),
             "bank_account": str(self.account.id),
+            "expense_category": str(self.category.id),
+            "expense_account": str(self.account.id),
             "transaction_date": today.strftime("%Y-%m-%d"),
         }
 
@@ -90,3 +92,41 @@ class TransactionViewsTestCase(TestCase):
 
         self.account.refresh_from_db()
         self.assertEqual(self.account.current_balance, Decimal("1250.00"))
+
+    def test_categorized_transfer_creates_two_transactions(self) -> None:
+        """Vérifie qu'un transfert avec catégorie crée bien 2 transactions opposées et aucun Transfer."""
+        dest_account = BankAccount.objects.create(
+            name="Livret A",
+            account_type=AccountType.SAVINGS,
+            owner=self.member,
+            current_balance=Decimal("0.00"),
+        )
+
+        url = reverse("quick_transaction_form")
+        today = timezone.localdate()
+
+        data = {
+            "tx_type": "TRANSFER",
+            "source_account": str(self.account.id),
+            "destination_account": str(dest_account.id),
+            "transfer_category": str(self.category.id),
+            "total_amount": "50.00",
+            "transaction_date": today.strftime("%Y-%m-%d"),
+        }
+
+        response = self.client.post(url, data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("HX-Refresh"), "true")
+
+        # Vérification : 2 Transactions ont été créées (et 0 objet Transfer)
+        from budget.models.transaction import Transfer
+
+        self.assertEqual(Transaction.objects.count(), 2)
+        self.assertEqual(Transfer.objects.count(), 0)
+
+        # Vérification des soldes
+        self.account.refresh_from_db()
+        dest_account.refresh_from_db()
+        self.assertEqual(self.account.current_balance, Decimal("950.00"))  # -50
+        self.assertEqual(dest_account.current_balance, Decimal("50.00"))  # +50

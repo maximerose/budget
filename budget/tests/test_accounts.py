@@ -4,7 +4,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from budget.models import AccountType, BankAccount, HouseholdMember
-from budget.models.account import Household, Visibility
+from budget.models.account import Household
+from core.models import Visibility
 
 
 class AccountModelsTestCase(TestCase):

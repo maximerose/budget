@@ -4,9 +4,9 @@ from typing import ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from core.models import BaseModel, SoftDeleteModel
+from core.models import BaseModel, SoftDeleteModel, Visibility
 
-from .account import BankAccount, Household, HouseholdMember, Visibility
+from .account import BankAccount, Household, HouseholdMember
 from .category import Category
 
 
