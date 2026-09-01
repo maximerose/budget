@@ -2,7 +2,17 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from budget.models.account import Household, HouseholdInvitation, HouseholdMember
+from budget.models import (
+    AccountType,
+    BankAccount,
+    Category,
+    CategoryType,
+    Household,
+    HouseholdInvitation,
+    HouseholdMember,
+    RecurringExpense,
+    Transaction,
+)
 
 User = get_user_model()
 
@@ -108,3 +118,91 @@ class HouseholdInvitationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertTemplateUsed(response, "registration/invite_error.html")
+
+    def test_auto_merge_on_invitation_accept(self) -> None:
+        """
+        Vérifie que lors de l'acceptation d'une invitation :
+        1. Les catégories homonymes sont fusionnées.
+        2. Les catégories uniques sont importées.
+        3. Les charges fixes sont importées.
+        """
+
+        # 1. Préparation du foyer de Laurie (celle qui rejoint)
+        user_laurie = User.objects.create_user(
+            username="laurie", password="password123"
+        )
+        household_laurie = Household.objects.create(name="Foyer de Laurie")
+        member_laurie = HouseholdMember.objects.create(
+            name="Laurie",
+            user=user_laurie,
+            household=household_laurie,
+        )
+        account_laurie = BankAccount.objects.create(
+            name="Compte",
+            account_type=AccountType.CHECKING,
+            owner=member_laurie,
+        )
+
+        cat_courses_laurie = Category.objects.create(
+            name="Courses",
+            type=CategoryType.VARIABLE,
+            household=household_laurie,
+        )
+        cat_beaute_laurie = Category.objects.create(
+            name="Beauté",
+            type=CategoryType.VARIABLE,
+            household=household_laurie,
+        )
+
+        tx_courses_laurie = Transaction.objects.create(
+            total_amount=10,
+            category=cat_courses_laurie,
+            bank_account=account_laurie,
+        )
+        tx_beaute_laurie = Transaction.objects.create(
+            total_amount=20,
+            category=cat_beaute_laurie,
+            bank_account=account_laurie,
+        )
+
+        recurring_laurie = RecurringExpense.objects.create(
+            label="La Fourche",
+            total_amount=50,
+            household=household_laurie,
+            category=cat_courses_laurie,
+        )
+
+        # 2. Préparation du foyer de Maxime (Celui qui invite)
+        cat_courses_maxime = Category.objects.create(
+            name="Courses",
+            type=CategoryType.VARIABLE,
+            household=self.household,
+        )
+
+        # 3. Larie se connecte et accepte l'invitation
+        self.client.force_login(user_laurie)
+        url = reverse("join_household", args=[self.invitation.token])
+        self.client.post(url)
+
+        # --- VÉRIFICATIONS ---
+        # A. Laurie est bien dans le foyer de Maxime
+        member_laurie.refresh_from_db()
+        self.assertEqual(member_laurie.household, self.household)
+
+        # B. La catégorie "Courses" de Laurie a été fusionnée avec celle de Maxime
+        cat_courses_laurie.refresh_from_db()
+        self.assertFalse(cat_courses_laurie.is_active)  # Supprimée
+        tx_courses_laurie.refresh_from_db()
+        self.assertEqual(tx_courses_laurie.category, cat_courses_maxime)  # Réassignée
+
+        # C. La ctégorie "Beauté" a été importée dans le foyer de Maxime
+        cat_beaute_laurie.refresh_from_db()
+        self.assertEqual(cat_beaute_laurie.household, self.household)
+        self.assertTrue(cat_beaute_laurie.is_active)
+        tx_beaute_laurie.refresh_from_db()
+        self.assertEqual(tx_beaute_laurie.category, cat_beaute_laurie)
+
+        # D. La charge fixe "La Fourche" a été importée et réassignée
+        recurring_laurie.refresh_from_db()
+        self.assertEqual(recurring_laurie.household, self.household)
+        self.assertEqual(recurring_laurie.category, cat_courses_maxime)

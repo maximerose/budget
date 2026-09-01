@@ -1,5 +1,12 @@
-from .account import AccountSnapshot, AccountType, BankAccount, HouseholdMember
-from .category import Category
+from .account import (
+    AccountSnapshot,
+    AccountType,
+    BankAccount,
+    Household,
+    HouseholdMember,
+    HouseholdInvitation,
+)
+from .category import Category, CategoryType
 from .forecast import MonthlyForecast
 from .recurring import RecurringExpense, RecurringExpenseShare
 from .transaction import Transaction, TransactionType, Transfer
@@ -9,6 +16,9 @@ __all__ = [
     "AccountType",
     "BankAccount",
     "Category",
+    "CategoryType",
+    "Household",
+    "HouseholdInvitation",
     "HouseholdMember",
     "MonthlyForecast",
     "RecurringExpense",

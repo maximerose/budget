@@ -8,6 +8,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from budget.models.account import AccountType
+from budget.models.category import Category
+from budget.models.forecast import MonthlyForecast
+from budget.models.recurring import RecurringExpense
 from budget.models.transaction import Transaction, TransactionType
 
 
@@ -93,3 +96,19 @@ def get_target_month_from_request(request) -> datetime.date:
             pass
 
     return timezone.localdate().replace(day=1)
+
+
+def merge_categories(source_category: Category, target_category: Category) -> None:
+    """Réassigne les données de la catégorie source vers la cible, puis désactive la source."""
+    Transaction.objects.filter(category=source_category).update(
+        category=target_category
+    )
+    MonthlyForecast.objects.filter(category=source_category).update(
+        category=target_category
+    )
+    RecurringExpense.objects.filter(category=source_category).update(
+        category=target_category
+    )
+
+    source_category.is_active = False
+    source_category.save(update_fields=["is_active"])

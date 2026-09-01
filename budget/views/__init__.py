@@ -6,7 +6,12 @@ from .auth import register_view as register_view
 from .categories import settings_categories_list_view as settings_categories_list_view
 from .categories import settings_category_delete_view as settings_category_delete_view
 from .categories import settings_category_form_view as settings_category_form_view
+from .categories import settings_category_merge_view as settings_category_merge_view
 from .dashboard import dashboard_view as dashboard_view
+from .profile import settings_generate_invite as settings_generate_invite
+from .profile import settings_household_update as settings_household_update
+from .profile import settings_profile_update as settings_profile_update
+from .profile import settings_profile_view as settings_profile_view
 from .recurring import settings_recurring_delete_view as settings_recurring_delete_view
 from .recurring import settings_recurring_form_view as settings_recurring_form_view
 from .recurring import settings_recurring_list_view as settings_recurring_list_view

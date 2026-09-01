@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Foyer & Profil | Mon Budget{% endblock %}
+
+{% block content %}
+  <div class="space-y-6 mb-16 md:mb-0">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+      {% include "budget/components/heading.html" with level="1" title="Paramètres" subtitle="Gère ton profil personnel et ton foyer." %}
+    </div>
+
+    {% include "budget/partials/settings/_settings_nav.html" with active_tab="profile" %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Colonne Gauche : Profil -->
+      <section class="space-y-6">
+        <div class="bg-brand-card border border-brand-border p-5 sm:p-6 rounded-card shadow-sm">
+          {% include "budget/components/heading.html" with title="Mon Profil" level="3" subtitle="Tes informations personnelles." %}
+
+          <form hx-post="{% url 'settings_profile_update' %}" class="mt-6 space-y-4">
+            {% csrf_token %}
+            {% include "budget/components/input.html" with label="Nom d'affichage" name="name" value=member.name required=True %}
+            {% include "budget/components/input.html" with label="Adresse e-mail" type="email" name="email" value=request.user.email required=True %}
+
+            <div class="pt-2">
+              {% include "budget/components/button.html" with label="Enregistrer mon profil" variant="primary" type="submit" %}
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Colonne Droite : Foyer & Invitation -->
+      <section class="space-y-6">
+        <div class="bg-brand-card border border-brand-border p-5 sm:p-6 rounded-card shadow-sm">
+          {% include "budget/components/heading.html" with title="Mon Foyer" level="3" subtitle="Gère le nom de ton espace partagé." %}
+
+          <form hx-post="{% url 'settings_household_update' %}" class="mt-6 space-y-4">
+            {% csrf_token %}
+            {% include "budget/components/input.html" with label="Nom du foyer" name="name" value=household.name required=True %}
+            <div class="pt-2">
+              {% include "budget/components/button.html" with label="Renommer le foyer" variant="ghost" type="submit" %}
+            </div>
+          </form>
+        </div>
+
+        <div class="bg-slate-900/50 border border-brand-border p-5 sm:p-6 rounded-card shadow-sm">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-action-info/10 text-action-info flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            {% include "budget/components/heading.html" with title="Inviter un membre" level="3" %}
+          </div>
+
+          <p class="text-sm text-slate-400 mb-6">
+            Générez un lien magique pour inviter votre conjoint(e) ou un colocataire à rejoindre <strong>{{ household.name }}</strong>.
+          </p>
+
+          {% if invite_url %}
+            <div class="p-3 bg-brand-dark border border-slate-700 rounded-xl flex items-center gap-2">
+              <input type="text"
+                     readonly
+                     value="{{ invite_url }}"
+                     class="bg-transparent text-slate-300 text-xs w-full outline-none"
+                     id="invite-link-input" />
+              <button type="button"
+                      onclick="navigator.clipboard.writeText(document.getElementById('invite-link-input').value); this.innerText='Copié!';"
+                      class="shrink-0 text-xs font-bold text-brand bg-brand/10 hover:bg-brand/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                Copier
+              </button>
+            </div>
+            <p class="text-[10px] text-action-warning mt-2 text-center">Ce lien expirera dans 48h.</p>
+          {% else %}
+            <form hx-post="{% url 'settings_generate_invite' %}">
+              {% csrf_token %}
+              {% include "budget/components/button.html" with label="Générer un lien d'invitation" variant="primary" type="submit" %}
+            </form>
+          {% endif %}
+        </div>
+      </section>
+
+    </div>
+  </div>
+{% endblock %}

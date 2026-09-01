@@ -23,14 +23,12 @@ class AuthenticationTestCase(TestCase):
         data = {
             "username": "nouveau_testeur",
             "email": "testeur@budget.local",
-            "password": "SuperPassword123!",  
+            "password": "SuperPassword123!",
             "password_confirm": "SuperPassword123!",
         }
 
         response = self.client.post(url, data)
-        self.assertRedirects(
-            response, reverse("login")
-        )  # Redirige bien au login par défaut
+        self.assertRedirects(response, reverse("dashboard"))
 
         self.assertTrue(User.objects.filter(username="nouveau_testeur").exists())
         new_user = User.objects.get(username="nouveau_testeur")

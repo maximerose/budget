@@ -49,6 +49,7 @@
     --tracking-tight: -0.025em;
     --tracking-wider: 0.05em;
     --leading-tight: 1.25;
+    --leading-relaxed: 1.625;
     --radius-md: 0.375rem;
     --radius-lg: 0.5rem;
     --radius-xl: 0.75rem;
@@ -1270,6 +1271,10 @@
   .text-\[11px\] {
     font-size: 11px;
   }
+  .leading-relaxed {
+    --tw-leading: var(--leading-relaxed);
+    line-height: var(--leading-relaxed);
+  }
   .leading-tight {
     --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
@@ -1497,6 +1502,10 @@
     --tw-duration: 300ms;
     transition-duration: 300ms;
   }
+  .outline-none {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
   @media (hover: hover) {
     .group-hover\:bg-brand:is(:where(.group):hover *) {
       background-color: var(--color-brand);
@@ -1606,6 +1615,14 @@
     }
     .hover\:bg-action-primary-hover:hover {
       background-color: var(--color-action-primary-hover);
+    }
+    .hover\:bg-action-warning\/20:hover {
+      background-color: color-mix(in srgb, #f59e0b 20%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-action-warning\/20:hover {
+        background-color: color-mix(in oklab, var(--color-action-warning) 20%, transparent);
+      }
     }
     .hover\:bg-action-warning\/30:hover {
       background-color: color-mix(in srgb, #f59e0b 30%, transparent);
@@ -1782,6 +1799,9 @@
     }
     .sm\:p-4 {
       padding: calc(var(--spacing) * 4);
+    }
+    .sm\:p-6 {
+      padding: calc(var(--spacing) * 6);
     }
     .sm\:p-8 {
       padding: calc(var(--spacing) * 8);

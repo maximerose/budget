@@ -69,11 +69,17 @@
                           class="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
                     Modifier
                   </button>
+                  <button hx-get="{% url 'settings_category_merge' category.id %}"
+                          hx-target="#modal-container"
+                          class="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-action-warning/10 hover:bg-action-warning/20 text-action-warning text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
+                    Fusionner
+                  </button>
                   <button hx-post="{% url 'settings_category_delete' category.id %}"
                           hx-confirm="Êtes-vous sûr de vouloir supprimer cette catégorie ?"
                           class="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-action-danger/10 hover:bg-action-danger/20 text-action-danger text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center">
                     Supprimer
                   </button>
+
                 </div>
 
               </div>

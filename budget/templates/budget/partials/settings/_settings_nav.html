@@ -17,9 +17,9 @@
     Charges fixes
   </a>
 
-  <a href="#"
+  <a href="{% url 'settings_profile' %}"
      {% if active_tab == 'profile' %}id="active-nav-tab"{% endif %}
-     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap text-slate-400 hover:text-slate-200">
+     class="pb-3 px-1 text-sm font-semibold transition-colors whitespace-nowrap {% if active_tab == 'profile' %}text-brand border-b-2 border-brand{% else %}text-slate-400 hover:text-slate-200{% endif %}">
     Foyer & Profil
   </a>
 </nav>

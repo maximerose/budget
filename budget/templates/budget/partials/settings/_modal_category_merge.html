@@ -1,0 +1,24 @@
+<form hx-post="{% url 'settings_category_merge' source_category.id %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      id="category-merge-form"
+      class="space-y-4">
+  {% csrf_token %}
+
+  <div class="p-4 bg-action-warning/10 border border-action-warning/30 text-action-warning rounded-xl text-sm mb-4 leading-relaxed">
+    <strong>Attention :</strong> Toutes les transactions, prévisions et charges fixes associées à <strong>{{ source_category.name }}</strong> seront transférées vers la catégorie cible.
+    <br />
+    <br />
+    La catégorie <strong>{{ source_category.name }}</strong> sera ensuite supprimée. Cette action est irréversible.
+  </div>
+
+  <div class="space-y-1">
+    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Fusionner vers :</label>
+    <select name="target_category" class="input-base px-3 py-2.5" required>
+      <option value="" disabled selected>Sélectionnez la catégorie cible</option>
+      {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.get_type_display }})</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>

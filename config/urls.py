@@ -13,8 +13,15 @@ from budget.views.categories import (
     settings_categories_list_view,
     settings_category_delete_view,
     settings_category_form_view,
+    settings_category_merge_view,
 )
 from budget.views.dashboard import pay_recurring_expense_view
+from budget.views.profile import (
+    settings_generate_invite,
+    settings_household_update,
+    settings_profile_update,
+    settings_profile_view,
+)
 from budget.views.recurring import (
     settings_recurring_delete_view,
     settings_recurring_form_view,
@@ -108,6 +115,11 @@ urlpatterns = [
         name="settings_category_delete",
     ),
     path(
+        "settings/categories/<uuid:category_id>/merge/",
+        settings_category_merge_view,
+        name="settings_category_merge",
+    ),
+    path(
         "settings/recurring/",
         settings_recurring_list_view,
         name="settings_recurring",
@@ -136,5 +148,21 @@ urlpatterns = [
         "settings/recurring/<uuid:expense_id>/shares/<uuid:share_id>/delete/",
         settings_recurring_share_delete_view,
         name="settings_recurring_share_delete",
+    ),
+    path("settings/profile/", settings_profile_view, name="settings_profile"),
+    path(
+        "settings/profile/update/",
+        settings_profile_update,
+        name="settings_profile_update",
+    ),
+    path(
+        "settings/household/update/",
+        settings_household_update,
+        name="settings_household_update",
+    ),
+    path(
+        "settings/household/invite/",
+        settings_generate_invite,
+        name="settings_generate_invite",
     ),
 ]
