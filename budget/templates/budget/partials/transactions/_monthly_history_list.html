@@ -7,9 +7,15 @@
 
     <!-- Gauche : Infos transaction -->
     <div class="flex items-center gap-3 pl-3 overflow-hidden">
-      <div class="w-9 h-9 rounded-xl bg-slate-800 border border-brand-border/60 items-center justify-center shrink-0 text-slate-400 text-sm hidden sm:flex">
-        {% if tx.transaction_type == 'INCOME' %}💰{% else %}💳{% endif %}
+      <!-- On centre bien l'icône dans la bulle avec flex items-center justify-center -->
+      <div class="w-9 h-9 rounded-xl bg-slate-800 border border-brand-border/60 items-center justify-center shrink-0 text-slate-400 hidden sm:flex">
+        {% if tx.transaction_type == 'INCOME' %}
+          {% include "budget/components/icon.html" with name="banknotes" class="w-5 h-5 text-budget-income" %}
+        {% else %}
+          {% include "budget/components/icon.html" with name="credit-card" class="w-5 h-5" %}
+        {% endif %}
       </div>
+
       <div class="truncate">
         <p class="font-semibold text-slate-200 truncate">
           {% if tx.label %}{{ tx.label }}{% elif tx.category %}{{ tx.category.name }}{% else %}{{ tx.recurring_expense.label }}{% endif %}
@@ -22,11 +28,18 @@
           {% endif %}
         </p>
 
+        <!-- Pastilles Tickets Resto / Carte  -->
         {% if tx.meal_voucher_amount > 0 %}
-          <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 bg-slate-900/60 px-2 py-0.5 rounded border border-brand-border/40">
-            <span>🍔 {{ tx.meal_voucher_amount|floatformat:"2g" }} €</span>
+          <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 bg-slate-900/60 px-2 py-0.5 rounded border border-brand-border/40 w-fit">
+            <span class="flex items-center gap-1 text-action-warning">
+              {% include "budget/components/icon.html" with name="ticket" class="w-3 h-3" %}
+              {{ tx.meal_voucher_amount|floatformat:"2g" }} €
+            </span>
             <span>•</span>
-            <span>💳 {{ tx.fallback_amount|floatformat:"2g" }} €</span>
+            <span class="flex items-center gap-1">
+              {% include "budget/components/icon.html" with name="credit-card" class="w-3 h-3" %}
+              {{ tx.fallback_amount|floatformat:"2g" }} €
+            </span>
           </div>
         {% endif %}
       </div>

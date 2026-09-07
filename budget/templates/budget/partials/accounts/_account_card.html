@@ -16,7 +16,7 @@
       {% include "budget/components/badge.html" with text=account.get_account_type_display variant=account.account_type|lower %}
       <!-- djlint:on -->
       {% if account.visibility == 'PRIVATE' %}
-        <span title="Compte Privé">🔒</span>
+        <span title="Compte Privé">{% include "budget/components/icon.html" with name="lock-closed" %}</span>
       {% endif %}
     </div>
     {% if account.is_default %}

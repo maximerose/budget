@@ -1,8 +1,5 @@
 {% extends "budget/components/card.html" %}
 {% block card_body %}
-  <div class="flex items-center justify-between pb-3 border-b border-brand-border">
-    {% include "budget/components/heading.html" with title="Charges Fixes du Mois" level="3" %}
-  </div>
   <div class="divide-y divide-brand-border">
     {% for item in recurring_expenses %}
       <!-- Bloc principal -->

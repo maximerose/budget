@@ -67,7 +67,7 @@ def settings_recurring_form_view(
         "budget/components/modal.html",
         {
             "modal_title": "Modifier la charge" if expense else "Nouvelle charge fixe",
-            "modal_icon": "📅",
+            "modal_icon": "calendar",
             "has_cancel": True,
             "has_save": True,
             "form_id": "recurring-form",
@@ -146,7 +146,7 @@ def settings_recurring_shares_view(request: Request, expense_id: str) -> HttpRes
         "budget/components/modal.html",
         {
             "modal_title": f"Répartition : {expense.label}",
-            "modal_icon": "🔀",
+            "modal_icon": "arrows-right-left",
             "has_cancel": True,
             "has_save": False,
             "modal_content_template": "budget/partials/settings/_modal_recurring_shares.html",

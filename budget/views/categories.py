@@ -59,7 +59,7 @@ def settings_category_form_view(
             "modal_title": "Modifier la catégorie"
             if category
             else "Nouvelle catégorie",
-            "modal_icon": "🏷️",
+            "modal_icon": "tag",
             "has_cancel": True,
             "has_save": True,
             "form_id": "category-form",
@@ -133,7 +133,7 @@ def settings_category_merge_view(request: Request, category_id: str) -> HttpResp
         "budget/components/modal.html",
         {
             "modal_title": f"Fusionner '{source_category.name}",
-            "modal_icon": "🔗",
+            "modal_icon": "link",
             "has_cancel": True,
             "has_save": True,
             "save_text": "Fusionner",

@@ -1,7 +1,7 @@
 {% extends "registration/base_auth.html" %}
 {% block title %}Inscription | Mon Budget{% endblock %}
 {% block auth_content %}
-  {% include "budget/components/heading.html" with title="Inscription" subtitle="Crée ton foyer en quelques secondes 🚀" %}
+  {% include "budget/components/heading.html" with title="Inscription" subtitle="Crée ton foyer en quelques secondes !" %}
   <form method="post" class="space-y-4 mt-6">
     {% csrf_token %}
     {% if form.non_field_errors %}

@@ -51,9 +51,11 @@
                    value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}" />
             <span class="text-4xl font-extrabold text-slate-500 mt-1">€</span>
         </div>
-        <p id="refund-hint" class="text-center text-xs text-slate-500 mt-2 transition-colors">
-            💡 Saisissez un montant négatif pour un remboursement.
-        </p>
+        <div id="refund-hint"
+             class="flex items-center justify-center gap-1.5 text-xs text-slate-500 mt-2 transition-colors">
+            {% include "budget/components/icon.html" with name="light-bulb" class="w-4 h-4 shrink-0" %}
+            <span>Saisissez un montant négatif pour un remboursement.</span>
+        </div>
     </div>
 
     <!-- 3. Blocs de champs dynamiques -->
@@ -150,9 +152,10 @@
 
         <div class="p-3 bg-slate-900/50 rounded-xl border border-brand-border">
             {% include "budget/components/select.html" with label="Catégorie (Optionnelle : pour remboursements)" name="transfer_category" options=categories_expense placeholder="Aucune (Transfert classique)" %}
-            <p class="text-[10px] text-slate-500 mt-2 leading-tight">
-                💡 Si vous sélectionnez une catégorie, cela créera automatiquement deux dépenses inversées pour équilibrer vos statistiques. Idéal quand un proche vous rembourse sa part !
-            </p>
+            <div class="flex items-start gap-2 text-[10px] text-slate-500 mt-2 leading-tight">
+                {% include "budget/components/icon.html" with name="light-bulb" class="w-4 h-4 shrink-0" %}
+                <span>Si vous sélectionnez une catégorie, cela créera automatiquement deux dépenses inversées pour équilibrer vos statistiques. Idéal quand un proche vous rembourse sa part !</span>
+            </div>
         </div>
     </div>
 
@@ -362,11 +365,11 @@
                 const val = parseFloat(hiddenAmountInput.value) || 0;
                 if (refundHint) {
                     if (val < 0) {
-                        refundHint.innerHTML = "🔄 Mode remboursement activé";
+                        refundHint.innerHTML = `{% include "budget/components/icon.html" with name="arrow-path" class="w-4 h-4 shrink-0" %} <span>Mode remboursement activé</span>`;
                         refundHint.classList.replace("text-slate-500", "text-budget-income");
                         refundHint.classList.add("font-bold");
                     } else {
-                        refundHint.innerHTML = "💡 Saisissez un montant négatif pour un remboursement.";
+                        refundHint.innerHTML = `{% include "budget/components/icon.html" with name="light-bulb" class="w-4 h-4 shrink-0" %} <span>Saisissez un montant négatif pour un remboursement.</span>`;
                         refundHint.classList.replace("text-budget-income", "text-slate-500");
                         refundHint.classList.remove("font-bold");
                     }

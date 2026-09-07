@@ -28,7 +28,7 @@
                   <div class="flex items-center gap-2">
                     <p class="text-base font-bold text-slate-100">{{ item.expense.label }}</p>
                     {% if item.expense.visibility == 'PRIVATE' %}
-                      <span title="Charge Privée">🔒</span>
+                      <span title="Charge Privée">{% include "budget/components/icon.html" with name="lock-closed" %}</span>
                     {% endif %}
                   </div>
 
@@ -56,9 +56,10 @@
                   <p class="text-[11px] text-slate-500 mt-0.5">Prélevé sur : {{ item.bank_account_name }}</p>
 
                   {% if item.next_date %}
-                    <p class="text-[11px] mt-0.5 font-medium {% if item.is_overdue %}text-action-danger{% else %}text-brand{% endif %}">
-                      📅 Prochaine échéance : {{ item.next_date|date:"d M Y" }}
-                      {% if item.is_overdue %}(En retard){% endif %}
+                    <p class="flex items-center gap-1 text-[11px] mt-0.5 font-medium {% if item.is_overdue %}text-action-danger{% else %}text-brand{% endif %}">
+                      {% include "budget/components/icon.html" with name="calendar" class="w-3 h-3 shrink-0" %}
+
+                      <span>Prochaine échéance : {{ item.next_date|date:"d M Y" }} {% if item.is_overdue %}(En retard){% endif %}</span>
                     </p>
                   {% endif %}
                 </div>

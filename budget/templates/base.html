@@ -166,21 +166,26 @@
     <!-- Interception des confirmations HTMX pour utiliser SweetAlert2 -->
     <script>
       document.body.addEventListener('htmx:confirm', function(evt) {
-          // On empêche la popup native du navigateur de s'afficher
+          // 1. S'il n'y a pas d'attribut hx-confirm, on laisse la requête passer normalement !
+          if (!evt.detail.question) {
+              return;
+          }
+
+          // 2. Sinon, on empêche la popup native du navigateur de s'afficher
           evt.preventDefault();
 
-          // On configure et on lance notre belle popup SweetAlert2
+          // 3. On configure et on lance notre belle popup SweetAlert2
           Swal.fire({
               title: 'Êtes-vous sûr ?',
-              text: evt.detail.question, // Récupère le texte de ton attribut hx-confirm="..."
+              text: evt.detail.question,
               icon: 'warning',
               showCancelButton: true,
-              confirmButtonColor: '#f43f5e', // La couleur action-danger de ton thème
-              cancelButtonColor: '#1e293b',  // La couleur brand-border de ton thème
-              confirmButtonText: 'Oui, supprimer',
+              confirmButtonColor: '#f43f5e',
+              cancelButtonColor: '#1e293b',
+              confirmButtonText: 'Oui, continuer',
               cancelButtonText: 'Annuler',
-              background: '#0f172a', // Fond sombre (brand-card)
-              color: '#f1f5f9',      // Texte clair (slate-100)
+              background: '#0f172a',
+              color: '#f1f5f9',
               customClass: {
                   popup: 'border border-slate-700 rounded-[1.5rem]',
                   confirmButton: 'font-bold rounded-xl px-5 py-2.5',
@@ -188,7 +193,7 @@
               }
           }).then((result) => {
               if (result.isConfirmed) {
-                  // Si l'utilisateur clique sur Oui, on autorise HTMX à envoyer la requête POST/DELETE
+                  // Si l'utilisateur valide, on autorise HTMX à reprendre sa requête
                   evt.detail.issueRequest(true);
               }
           });

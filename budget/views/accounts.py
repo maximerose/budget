@@ -1,4 +1,3 @@
-import json
 from urllib.request import Request
 
 from django.contrib import messages
@@ -72,7 +71,7 @@ def settings_account_form_view(
         "budget/components/modal.html",
         {
             "modal_title": "Modifier le compte" if account else "Nouveau compte",
-            "modal_icon": "🏦",
+            "modal_icon": "pencil",
             "has_cancel": True,
             "has_save": True,
             "form_id": "account-form",

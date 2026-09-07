@@ -5,12 +5,21 @@
 
         <!-- Header (shrink-0 pour ne pas être écrasé) -->
         <div class="flex items-start justify-between border-b border-brand-border pb-3 mb-4 shrink-0">
-            <div>
-                {% include "budget/components/heading.html" with level="3" title=modal_title|default:"Modal" subtitle=modal_subtitle %}
+            <div class="flex items-center gap-3">
+                {% if modal_icon %}
+                    <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0 shadow-inner">
+                        {% include "budget/components/icon.html" with name=modal_icon %}
+                    </div>
+                {% endif %}
+                <div>
+                    {% include "budget/components/heading.html" with level="3" title=modal_title|default:"Modal" subtitle=modal_subtitle %}
+                </div>
             </div>
             <button onclick="document.getElementById('modal-container').replaceChildren()"
                     type="button"
-                    class="text-slate-400 hover:text-slate-200 p-1 rounded-lg cursor-pointer">✕</button>
+                    class="text-slate-400 hover:text-slate-200 p-1 rounded-lg cursor-pointer">
+                {% include "budget/components/icon.html" with name="x-mark" %}
+            </button>
         </div>
 
         <!-- Corps de la modale (overflow-y-auto pour permettre le scroll) -->

@@ -1,10 +1,6 @@
 {% extends "budget/components/card.html" %}
 
 {% block card_body %}
-  <div class="flex items-center justify-between pb-3 border-b border-brand-border">
-    {% include "budget/components/heading.html" with title="Dernières Transactions" level="3" %}
-  </div>
-
   <div id="recent-transactions-list" class="divide-y divide-brand-border/60">
     {% include "budget/partials/transactions/_monthly_history_list.html" with monthly_transactions=recent_transactions %}
   </div>

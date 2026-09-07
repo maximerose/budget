@@ -4,39 +4,51 @@
 {% block content %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <div class="space-y-8 mb-16 md:mb-0">
+  <div class="space-y-10 mb-16 md:mb-0">
 
     <!-- En-tête -->
-    <div class="bg-brand-card border border-brand-border p-6 rounded-card shadow-sm">
-      {% include "budget/components/heading.html" with level="1" title="Bonjour "|add:member.name|default:"Bonjour à toi"|add:" 👋" subtitle="Voici l'aperçu complet de ton budget." %}
+    <div class="bg-brand-card border border-brand-border p-6 rounded-card shadow-sm flex items-center justify-between">
+      {% include "budget/components/heading.html" with level="1" title="Tableau de bord" subtitle="Voici l'aperçu de tes finances ce mois-ci." %}
     </div>
 
-    <!-- 1. DERNIÈRES DÉPENSES -->
-    <section class="space-y-3">
-      {% include "budget/partials/transactions/_recent_list.html" %}
-    </section>
-
-    <!-- 2. DÉPENSES À VENIR (Charges Fixes, Enveloppes Variables, Épargne) -->
+    <!-- 1. COMPTES & SOLDES -->
     <section class="space-y-4">
-      <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
-        <span>📅</span> Dépenses à venir
-      </h2>
-
-      <!-- Charges Fixes -->
-      {% include "budget/partials/recurring/_summary_list.html" %}
-
-      <!-- Enveloppes Variables & Épargne -->
-      {% include "budget/partials/forecast/_forecasts_list.html" %}
-    </section>
-
-    <!-- 3. PRÉVISIONS & COMPTES -->
-    <section class="space-y-4">
-      <!-- Cartes des comptes -->
+      <div class="flex items-center gap-2">
+        <div class="text-brand">{% include "budget/components/icon.html" with name="building-library" %}</div>
+        {% include "budget/components/heading.html" with level="2" title="Comptes & Soldes" %}
+      </div>
       {% include "budget/partials/accounts/_cards_list.html" %}
+    </section>
 
-      <!-- Projections / Cascades -->
+    <!-- 2. PRÉVISIONS MENSUELLES (La cascade) -->
+    <section class="space-y-4">
+      <div class="flex items-center gap-2">
+        <div class="text-action-info">{% include "budget/components/icon.html" with name="banknotes" %}</div>
+        {% include "budget/components/heading.html" with level="2" title="Prévisions mensuelles" subtitle="Estimation des soldes en fin de mois." %}
+      </div>
       {% include "budget/partials/accounts/_cascade_projection.html" %}
     </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- 3. FLUX EN ATTENTE (Moitié gauche sur Desktop) -->
+      <div class="space-y-6">
+        <div class="flex items-center gap-2">
+          <div class="text-action-warning">{% include "budget/components/icon.html" with name="calendar" %}</div>
+          {% include "budget/components/heading.html" with level="2" title="Dépenses à venir" %}
+        </div>
+        {% include "budget/partials/recurring/_summary_list.html" %}
+        {% include "budget/partials/forecast/_forecasts_list.html" %}
+      </div>
+
+      <!-- 4. DERNIÈRES TRANSACTIONS (Moitié droite sur Desktop) -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <div class="text-slate-400">{% include "budget/components/icon.html" with name="arrows-right-left" %}</div>
+          {% include "budget/components/heading.html" with level="2" title="Flux récents" %}
+        </div>
+        {% include "budget/partials/transactions/_recent_list.html" %}
+      </div>
+    </div>
 
   </div>
 {% endblock %}
