@@ -25,8 +25,10 @@ def settings_profile_view(request: Request) -> HttpResponse:
     valid_invitation = next((inv for inv in invitations if inv.is_valid), None)
 
     invite_url = None
+    invite_code = None
 
     if valid_invitation:
+        invite_code = valid_invitation.token
         invite_url = request.build_absolute_uri(
             reverse("join_household", args=[valid_invitation.token])
         )
@@ -38,6 +40,7 @@ def settings_profile_view(request: Request) -> HttpResponse:
             "member": member,
             "household": household,
             "invite_url": invite_url,
+            "invite_code": invite_code,
         },
     )
 

@@ -9,27 +9,62 @@
         {% for error in form.non_field_errors %}{{ error }}{% endfor %}
       </div>
     {% endif %}
+
     <div>
-      {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" value=form.username.value|default_if_none:"" required=True autofocus=True %}
+      {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" autocomplete="username" placeholder="jean-dupont" value=form.username.value|default_if_none:"" required=True autofocus=True prefix="@" %}
       {% if form.username.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.username.errors.0 }}</p>{% endif %}
     </div>
+
     <div>
-      {% include "budget/components/input.html" with label="Email" type="email" name="email" value=form.email.value|default_if_none:"" required=True %}
+      {% include "budget/components/input.html" with label="Nom d'affichage" name="display_name" autocomplete="name" placeholder="Jean Dupont" value=form.display_name.value|default_if_none:"" required=True %}
+      {% if form.display_name.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.display_name.errors.0 }}</p>{% endif %}
+    </div>
+
+    <div>
+      {% include "budget/components/input.html" with label="Email" type="email" name="email" autocomplete="email" placeholder="jean@exemple.fr" value=form.email.value|default_if_none:"" required=True %}
       {% if form.email.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.email.errors.0 }}</p>{% endif %}
     </div>
+
     <div>
-      {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" required=True %}
+      {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" autocomplete="new-password" required=True %}
       {% if form.password.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.password.errors.0 }}</p>{% endif %}
     </div>
+
     <div>
-      {% include "budget/components/input.html" with label="Confirmer le mot de passe" type="password" name="password_confirm" required=True %}
+      {% include "budget/components/input.html" with label="Confirmer le mot de passe" type="password" name="password_confirm" autocomplete="new-password" required=True %}
       {% if form.password_confirm.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.password_confirm.errors.0 }}</p>{% endif %}
     </div>
+
+    <div class="pt-2 border-t border-brand-border/50">
+      {% include "budget/components/input.html" with label="Code Foyer (Optionnel)" name="household_code" value=form.household_code.value|default_if_none:"" autocomplete="off" placeholder="Ex: A7B9X2" help_text="Saisis le code du membre de ton foyer pour le rejoindre." %}
+      {% if form.household_code.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.household_code.errors.0 }}</p>{% endif %}
+    </div>
+
     <div class="pt-4">
       {% include "budget/components/button.html" with label="Créer mon compte" variant="primary" type="submit" %}
     </div>
   </form>
+
   <p class="text-center text-sm text-slate-400 mt-6 pt-6 border-t border-brand-border/50">
     Déjà un compte ? <a href="{% url 'login' %}" class="text-brand hover:underline font-semibold">Se connecter</a>
   </p>
+
+  <!-- Script pour le formatage du username à la volée -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const usernameInput = document.getElementById("username");
+      if (usernameInput) {
+        usernameInput.addEventListener("input", (e) => {
+          let val = e.target.value;
+          // Supprime les accents
+          val = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          // Remplace les espaces par des tirets et met en minuscules
+          val = val.replace(/\s+/g, "-").toLowerCase();
+          // Supprime tous les caractères non autorisés
+          val = val.replace(/[^a-z0-9-]/g, "");
+          e.target.value = val;
+        });
+      }
+    });
+  </script>
 {% endblock %}

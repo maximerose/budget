@@ -94,14 +94,18 @@ def register_view(request: Request) -> HttpResponse:
             with transaction.atomic():
                 user = form.save()
 
-                # --- LOGIQUE D'INVITATION ---
-                token = request.session.get("invite_token")
-                invitation = None
+                display_name = form.cleaned_data.get("display_name")
 
-                if token:
-                    invitation = HouseholdInvitation.objects.filter(
-                        token=token, accepted_by__isnull=True
-                    ).first()
+                # --- LOGIQUE D'INVITATION ---
+                invitation = form.cleaned_data.get("valid_invitation")
+
+                # Si pas de code foyer, on vérifie si la session contenait un token de lien magique
+                if not invitation:
+                    token = request.session.get("invite_token")
+                    if token:
+                        invitation = HouseholdInvitation.objects.filter(
+                            token=token, accepted_by__isnull=True
+                        ).first()
 
                 if invitation and invitation.is_valid:
                     # L'utilisateur rejoint le foyer existant
@@ -112,11 +116,11 @@ def register_view(request: Request) -> HttpResponse:
                 else:
                     # Création automatique d'un nouveau foyer
                     household = Household.objects.create(
-                        name=f"Foyer de {user.username}"
+                        name=f"Foyer de {display_name}"
                     )
 
                 HouseholdMember.objects.create(
-                    name=user.username,
+                    name=display_name,
                     user=user,
                     household=household,
                 )

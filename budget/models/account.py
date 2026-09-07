@@ -1,4 +1,6 @@
 import datetime
+import random
+import string
 import uuid
 from decimal import Decimal
 from typing import ClassVar
@@ -10,6 +12,11 @@ from django.db.models import Case, Value, When
 from django.utils import timezone
 
 from core.models import BaseModel, SoftDeleteModel, Visibility
+
+
+def generate_short_token():
+    """Génère un code alphanumérique de 6 caractères (ex: A7B9X2)."""
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
 class Household(BaseModel, SoftDeleteModel):
@@ -64,11 +71,12 @@ class HouseholdInvitation(BaseModel):
         related_name="invitations",
         verbose_name="Foyer",
     )
-    token = models.UUIDField(
-        default=uuid.uuid4(),
+    token = models.CharField(
+        max_length=10,
+        default=generate_short_token,
         editable=False,
         unique=True,
-        verbose_name="Jeton unique",
+        verbose_name="Code Foyer",
     )
     accepted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

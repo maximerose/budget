@@ -15,8 +15,8 @@
       </div>
     {% endif %}
 
-    {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" required=True autofocus=True %}
-    {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" required=True %}
+    {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" autocomplete="username" required=True autofocus=True %}
+    {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" autocomplete="current-password" required=True %}
 
     <div class="pt-4">
       {% include "budget/components/button.html" with label="Se connecter" variant="primary" type="submit" %}

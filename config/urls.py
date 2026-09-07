@@ -46,7 +46,7 @@ urlpatterns = [
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("register/", register_view, name="register"),
-    path("join/<uuid:token>/", join_household_view, name="join_household"),
+    path("join/<str:token>/", join_household_view, name="join_household"),
     # --- Application ---
     path("", dashboard_view, name="dashboard"),
     path(

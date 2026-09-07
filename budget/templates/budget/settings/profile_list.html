@@ -54,27 +54,44 @@
           </div>
 
           <p class="text-sm text-slate-400 mb-6">
-            Générez un lien magique pour inviter votre conjoint(e) ou un colocataire à rejoindre <strong>{{ household.name }}</strong>.
+            Partage ton code ou ton lien d'invitation avec ton/ta conjoint(e) pour rejoindre <strong>{{ household.name }}</strong>.
           </p>
 
           {% if invite_url %}
-            <div class="p-3 bg-brand-dark border border-slate-700 rounded-xl flex items-center gap-2">
-              <input type="text"
-                     readonly
-                     value="{{ invite_url }}"
-                     class="bg-transparent text-slate-300 text-xs w-full outline-none"
-                     id="invite-link-input" />
-              <button type="button"
-                      onclick="navigator.clipboard.writeText(document.getElementById('invite-link-input').value); this.innerText='Copié!';"
-                      class="shrink-0 text-xs font-bold text-brand bg-brand/10 hover:bg-brand/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
-                Copier
-              </button>
+            <div class="space-y-3">
+              <!-- Affichage du Code Foyer court -->
+              <div class="p-3 bg-slate-900 border border-brand-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Code Foyer</span>
+                  <span class="text-lg font-extrabold text-brand tracking-widest">{{ invite_code }}</span>
+                </div>
+                <button type="button"
+                        onclick="navigator.clipboard.writeText('{{ invite_code }}'); this.innerText='Copié !'; setTimeout(() => this.innerText='Copier le code', 2000);"
+                        class="text-xs font-bold text-brand bg-brand/10 hover:bg-brand/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                  Copier le code
+                </button>
+              </div>
+
+              <!-- Lien d'invitation direct -->
+              <div class="p-3 bg-brand-dark border border-slate-800 rounded-xl flex items-center gap-2">
+                <input type="text"
+                       readonly
+                       value="{{ invite_url }}"
+                       class="bg-transparent text-slate-400 text-xs w-full outline-none truncate"
+                       id="invite-link-input" />
+                <button type="button"
+                        onclick="navigator.clipboard.writeText(document.getElementById('invite-link-input').value); this.innerText='Copié !'; setTimeout(() => this.innerText='Copier lien', 2000);"
+                        class="shrink-0 text-xs font-semibold text-slate-300 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer">
+                  Copier lien
+                </button>
+              </div>
             </div>
-            <p class="text-[10px] text-action-warning mt-2 text-center">Ce lien expirera dans 48h.</p>
+
+            <p class="text-[10px] text-action-warning mt-3 text-center">Ce code et ce lien expireront dans 48h.</p>
           {% else %}
             <form hx-post="{% url 'settings_generate_invite' %}">
               {% csrf_token %}
-              {% include "budget/components/button.html" with label="Générer un lien d'invitation" variant="primary" type="submit" %}
+              {% include "budget/components/button.html" with label="Générer un code d'invitation" variant="primary" type="submit" %}
             </form>
           {% endif %}
         </div>
