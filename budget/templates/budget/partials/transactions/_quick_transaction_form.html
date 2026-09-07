@@ -33,14 +33,22 @@
     <!-- 2. Saisie du Montant -->
     <div class="mb-6 border-b border-brand-border/60 pb-6">
         <div class="flex items-center justify-center gap-1.5 w-full">
-            <input type="number"
-                   name="total_amount"
-                   step="0.01"
+            <input type="text"
+                   inputmode="decimal"
+                   id="total_amount_display"
                    value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}"
                    class="w-[4.5ch] bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none transition-all duration-75"
                    placeholder="0.00"
                    required
-                   autofocus />
+                   autofocus
+                   oninput="formatCurrency(this, 'total_amount'); autoResizeAmount();"
+                   onblur="formatCurrencyOnBlur(this, 'total_amount')" />
+
+            <!-- Le champ caché pour Django -->
+            <input type="hidden"
+                   id="total_amount"
+                   name="total_amount"
+                   value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}" />
             <span class="text-4xl font-extrabold text-slate-500 mt-1">€</span>
         </div>
         <p id="refund-hint" class="text-center text-xs text-slate-500 mt-2 transition-colors">
@@ -202,7 +210,10 @@
         const catTrMap = JSON.parse('{{ cat_tr_map|escapejs }}');
         const trAccountsInfo = JSON.parse('{{ tr_accounts_info_json|escapejs|default:"[]" }}');
         
-        const amountInput = document.querySelector('#quick-transaction-form input[name="total_amount"]');
+        // 1. On récupère les DEUX champs de montant
+        const displayAmountInput = document.getElementById('total_amount_display');
+        const hiddenAmountInput = document.getElementById('total_amount');
+        
         const refundHint = document.getElementById('refund-hint');
         const trWrapper = document.getElementById('meal-voucher-wrapper');
         const trCheckbox = document.getElementById('use_meal_voucher');
@@ -218,9 +229,10 @@
         const destSelect = document.querySelector('select[name="destination_account"]');
         
         function autoResizeAmount() {
-            if (!amountInput) return;
-            const length = amountInput.value.length || 4;
-            amountInput.style.width = `${length + 0.5}ch`;
+            if (!displayAmountInput) return;
+            // On se base sur la longueur du texte formaté (espaces inclus)
+            const length = displayAmountInput.value.length || 4;
+            displayAmountInput.style.width = `${length + 0.5}ch`;
         }
 
         function getSelectedTrAccount() {
@@ -234,7 +246,8 @@
             
             trMaxLabel.textContent = `Max dispo: ${trAcc.remaining.toFixed(2)} €`;
             
-            const total = parseFloat(amountInput.value) || 0;
+            // On se base sur le champ caché pour les mathématiques
+            const total = parseFloat(hiddenAmountInput.value) || 0;
             const suggested = Math.max(0, Math.min(total, trAcc.remaining));
             trAmountInput.value = suggested > 0 ? suggested.toFixed(2) : "";
             
@@ -307,21 +320,18 @@
             }
         }
 
-        // --- NOUVELLE FONCTION : Échanger les deux comptes ---
         function swapTransferAccounts() {
             if (!sourceSelect || !destSelect) return;
             
             const tempSource = sourceSelect.value;
             const tempDest = destSelect.value;
 
-            // Débloquer temporairement toutes les options pour pouvoir assigner les valeurs
             for (let opt of sourceSelect.options) opt.disabled = false;
             for (let opt of destSelect.options) opt.disabled = false;
 
             sourceSelect.value = tempDest;
             destSelect.value = tempSource;
 
-            // Réappliquer la logique de blocage après l'échange
             updateTransferAccounts();
         }
   
@@ -343,11 +353,13 @@
   
         if (categorySelect) categorySelect.addEventListener('change', updateTrVisibility);
         
-        if (amountInput) {
-            amountInput.addEventListener('input', (e) => {
+        // On écoute le champ visible
+        if (displayAmountInput) {
+            displayAmountInput.addEventListener('input', (e) => {
                 autoResizeAmount();
                 
-                const val = parseFloat(e.target.value) || 0;
+                // On lit le champ caché pour savoir si la valeur est négative
+                const val = parseFloat(hiddenAmountInput.value) || 0;
                 if (refundHint) {
                     if (val < 0) {
                         refundHint.innerHTML = "🔄 Mode remboursement activé";
@@ -370,6 +382,7 @@
 
         const isEditMode = "{{ transaction|yesno:'true,false' }}" === "true";
   
+        // Forcer le dimensionnement initial
         autoResizeAmount();
         updateTransferAccounts();
 

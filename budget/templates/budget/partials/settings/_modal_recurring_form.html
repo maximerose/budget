@@ -18,7 +18,7 @@
       {% if form.label.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.label.errors.0 }}</p>{% endif %}
     </div>
     <div>
-      {% include "budget/components/input.html" with label="Montant mensuel (€)" type="number" step="0.01" name="total_amount" value=form.total_amount.value|default_if_none:"0.00" required=True %}
+      {% include "budget/components/currency_input.html" with label="Montant mensuel (€)" name="total_amount" value=form.total_amount.value required=True %}
       {% if form.total_amount.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.total_amount.errors.0 }}</p>{% endif %}
     </div>
   </div>

@@ -4,5 +4,5 @@
       id="adjust-form"
       class="space-y-4">
   {% csrf_token %}
-  {% include "budget/components/input.html" with label="Nouveau solde théorique (€)" type="number" name="new_balance" value=account.current_balance step="0.01" required=True autofocus=True %}
+  {% include "budget/components/currency_input.html" with label="Nouveau solde théorique (€)" name="new_balance" value=account.current_balance step="0.01" required=True autofocus=True %}
 </form>

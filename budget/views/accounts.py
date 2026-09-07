@@ -1,5 +1,7 @@
+import json
 from urllib.request import Request
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpResponse
@@ -56,6 +58,8 @@ def settings_account_form_view(
 
             new_account.save()
 
+            messages.success(request, "Compte modifié")
+
             response = HttpResponse("")
             response["HX-Refresh"] = "true"
 
@@ -93,8 +97,11 @@ def settings_account_delete_view(request: Request, account_id: str) -> HttpRespo
         account.is_active = False
         account.save(update_fields=["is_active"])
 
+        messages.success(request, "Compte supprimé")
+
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
+
         return response
 
     return HttpResponse("Méthode non autorisée", status=405)

@@ -1,5 +1,6 @@
 from urllib.request import Request
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponse
@@ -42,8 +43,11 @@ def settings_category_form_view(
                 new_category.household = member.household
             new_category.save()
 
+            messages.success("Catégorie créée")
+
             response = HttpResponse("")
             response["HX-Refresh"] = "true"
+
             return response
     else:
         form = CategoryForm(instance=category, household=member.household)
@@ -77,8 +81,11 @@ def settings_category_delete_view(request: Request, category_id: str) -> HttpRes
         category.is_active = False
         category.save(update_fields=["is_active"])
 
+        messages.success("Catégorie supprimée")
+
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
+
         return response
 
     return HttpResponse("Méthode non autorisée", status=405)

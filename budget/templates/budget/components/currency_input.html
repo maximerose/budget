@@ -1,0 +1,55 @@
+<div class="space-y-1">
+    {% if label %}
+        <label for="{{ name }}_display"
+               class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">{{ label }}</label>
+    {% endif %}
+
+    <div class="relative">
+        <!-- Champ visible par l'utilisateur -->
+        <input type="text"
+               inputmode="decimal"
+               id="{{ name }}_display"
+               value="{{ value|stringformat:'.2f'|default:'0.00' }}"
+               {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+               {% if required %}required{% endif %}
+               {% if autofocus %}autofocus{% endif %}
+               class="input-base px-4 py-2.5 pr-8 font-medium"
+               oninput="formatCurrency(this, '{{ name }}')"
+               onblur="formatCurrencyOnBlur(this, '{{ name }}')" />
+
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold pointer-events-none">€</span>
+    </div>
+
+    <!-- Champ caché envoyé à Django -->
+    <input type="hidden"
+           id="{{ name }}"
+           name="{{ name }}"
+           value="{{ value|stringformat:'.2f'|default:'0.00' }}" />
+
+    {% if help_text %}
+        <p class="text-[11px] text-slate-500">{{ help_text }}</p>
+    {% endif %}
+</div>
+
+<!-- Script d'initialisation pour ce composant -->
+<script>
+  (function() {
+      const displayElem = document.getElementById('{{ name }}_display');
+      
+      if (displayElem && typeof window.formatCurrencyOnBlur === 'function') {
+          // 1. Formatage immédiat dès l'insertion dans le DOM
+          window.formatCurrencyOnBlur(displayElem, '{{ name }}');
+          
+          // 2. Gestion du curseur si le champ a l'autofocus
+          if (displayElem.hasAttribute('autofocus')) {
+              // Un petit délai (50ms) laisse le temps à HTMX de faire son focus natif,
+              // puis on reprend la main pour forcer le curseur tout à la fin !
+              setTimeout(() => {
+                  displayElem.focus();
+                  const len = displayElem.value.length;
+                  displayElem.setSelectionRange(len, len);
+              }, 50);
+          }
+      }
+  })();
+</script>

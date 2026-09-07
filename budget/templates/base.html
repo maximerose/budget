@@ -8,6 +8,11 @@
     <title>{% block title %}Gestion de Budget{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'budget/css/output.css' %}" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet"
+          type="text/css"
+          href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   </head>
 
   <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-brand selection:text-white"
@@ -44,36 +49,17 @@
 
     <!-- Éléments réservés aux utilisateurs connectés -->
     {% if request.user.is_authenticated %}
-      <!-- Bottom Navigation Bar (Mobile First) -->
-      <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-brand-card/90 backdrop-blur-md border-t border-brand-border z-30 px-6 py-2">
-        <div class="flex justify-around items-center relative">
-          <a href="{% url 'dashboard' %}" class="flex flex-col items-center text-brand gap-1">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 00-1 1m-6 0h6" />
-            </svg>
-            <span class="text-[10px] font-medium">Dashboard</span>
-          </a>
-          <div class="w-12"></div>
-          <a href="#" class="flex flex-col items-center text-slate-400 gap-1 hover:text-slate-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-            </svg>
-            <span class="text-[10px] font-medium">Fixes</span>
-          </a>
-        </div>
-      </nav>
+      {% include "budget/partials/shared/_bottom_nav.html" %}
 
       <!-- Bouton Flottant (FAB) -->
-      {% if request.resolver_match.url_name == 'dashboard' %}
-        <button hx-get="{% url 'quick_transaction_form' %}"
-                hx-target="#modal-container"
-                hx-swap="innerHTML"
-                class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6" />
-          </svg>
-        </button>
-      {% endif %}
+      <button hx-get="{% url 'quick_transaction_form' %}"
+              hx-target="#modal-container"
+              hx-swap="innerHTML"
+              class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6" />
+        </svg>
+      </button>
     {% endif %}
 
     <!-- Conteneur pour Modales -->
@@ -105,6 +91,108 @@
           }
         });
       })();
+    </script>
+    <!-- Script de formatage monétaire global -->
+    <script>
+      window.formatCurrency = function(displayInput, hiddenInputId) {
+          let rawValue = displayInput.value.replace(/[^\d.,]/g, '').replace(',', '.');
+          let parts = rawValue.split('.');
+          if (parts.length > 2) {
+              parts = [parts[0], parts.slice(1).join('')];
+              rawValue = parts.join('.');
+          }
+          if (parts[1] && parts[1].length > 2) {
+              parts[1] = parts[1].substring(0, 2);
+              rawValue = parts.join('.');
+          }
+          document.getElementById(hiddenInputId).value = rawValue || '0.00';
+          if (parts[0]) {
+              parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+          }
+          let displayValue = parts.join(',');
+          if (displayInput.value.endsWith(',') || displayInput.value.endsWith('.')) {
+              if (!displayValue.includes(',')) displayValue += ',';
+          }
+          displayInput.value = displayValue;
+      };
+
+      window.formatCurrencyOnBlur = function(displayInput, hiddenInputId) {
+          let hiddenVal = document.getElementById(hiddenInputId).value;
+          if (hiddenVal && hiddenVal !== '0.00') {
+              let formatted = parseFloat(hiddenVal).toFixed(2).replace('.', ',');
+              formatted = formatted.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+              displayInput.value = formatted;
+          }
+      };
+    </script>
+
+    <!-- Injection des messages pour le JS (Invisible et 100% valide pour le linter) -->
+    {% if messages %}
+      <div id="django-messages" class="hidden">
+        {% for message in messages %}
+          <div data-message="{{ message }}" data-tag="{{ message.tags }}"></div>
+        {% endfor %}
+      </div>
+
+      <script>
+        document.addEventListener("DOMContentLoaded", function() {
+          const messages = document.querySelectorAll("#django-messages > div");
+          
+          messages.forEach(function(msg) {
+            const text = msg.getAttribute("data-message");
+            const tag = msg.getAttribute("data-tag");
+            const bgColor = tag === "error" ? "#f43f5e" : "#10b981"; // Rouge si erreur, sinon Vert
+            
+            Toastify({
+                text: text,
+                duration: 2000,
+                gravity: "bottom",
+                position: "center",
+                style: {
+                    background: bgColor, 
+                    borderRadius: "9999px",
+                    padding: "8px 16px",
+                    fontSize: "0.875rem",
+                    color: "#020617", 
+                    fontWeight: "600",
+                    boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)",
+                    marginBottom: "5rem"
+                }
+            }).showToast();
+          });
+        });
+      </script>
+    {% endif %}
+    <!-- Interception des confirmations HTMX pour utiliser SweetAlert2 -->
+    <script>
+      document.body.addEventListener('htmx:confirm', function(evt) {
+          // On empêche la popup native du navigateur de s'afficher
+          evt.preventDefault();
+
+          // On configure et on lance notre belle popup SweetAlert2
+          Swal.fire({
+              title: 'Êtes-vous sûr ?',
+              text: evt.detail.question, // Récupère le texte de ton attribut hx-confirm="..."
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#f43f5e', // La couleur action-danger de ton thème
+              cancelButtonColor: '#1e293b',  // La couleur brand-border de ton thème
+              confirmButtonText: 'Oui, supprimer',
+              cancelButtonText: 'Annuler',
+              background: '#0f172a', // Fond sombre (brand-card)
+              color: '#f1f5f9',      // Texte clair (slate-100)
+              customClass: {
+                  popup: 'border border-slate-700 rounded-[1.5rem]',
+                  confirmButton: 'font-bold rounded-xl px-5 py-2.5',
+                  cancelButton: 'font-bold rounded-xl px-5 py-2.5'
+              }
+          }).then((result) => {
+              if (result.isConfirmed) {
+                  // Si l'utilisateur clique sur Oui, on autorise HTMX à envoyer la requête POST/DELETE
+                  evt.detail.issueRequest(true);
+              }
+          });
+      });
     </script>
   </body>
 </html>

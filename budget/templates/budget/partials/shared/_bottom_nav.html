@@ -1,0 +1,21 @@
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-brand-card/90 backdrop-blur-md border-t border-brand-border z-30 pb-safe">
+  <div class="flex justify-between items-center px-6 py-3">
+
+    {% for item in main_menu %}
+
+      {% if item.is_spacer %}
+        <div class="w-14 shrink-0"></div>
+      {% else %}
+        <a href="{% url item.url_name %}"
+           class="flex flex-col items-center gap-1 w-16 {% if item.is_active %}text-brand{% else %}text-slate-500 hover:text-slate-300{% endif %} transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            {{ item.icon|safe }}
+          </svg>
+          <span class="text-[10px] font-medium">{{ item.label }}</span>
+        </a>
+      {% endif %}
+
+    {% endfor %}
+
+  </div>
+</nav>

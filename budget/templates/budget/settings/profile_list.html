@@ -38,7 +38,7 @@
             {% csrf_token %}
             {% include "budget/components/input.html" with label="Nom du foyer" name="name" value=household.name required=True %}
             <div class="pt-2">
-              {% include "budget/components/button.html" with label="Renommer le foyer" variant="ghost" type="submit" %}
+              {% include "budget/components/button.html" with label="Renommer le foyer" variant="primary" type="submit" %}
             </div>
           </form>
         </div>
@@ -79,7 +79,15 @@
           {% endif %}
         </div>
       </section>
-
+      <div class="pt-6 border-t border-brand-border/50">
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full inline-flex items-center justify-center font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 text-sm cursor-pointer bg-action-danger/10 hover:bg-action-danger/20 text-action-danger">
+            Se déconnecter
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 {% endblock %}

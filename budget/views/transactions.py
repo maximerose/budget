@@ -3,6 +3,7 @@ import json
 from decimal import Decimal
 from urllib.request import Request
 
+from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -40,6 +41,8 @@ def adjust_account_balance_view(
         # On met à jour le solde du compte et la date
         account.current_balance = new_balance
         account.save()
+
+        messages.success(request, "Solde ajusté")
 
         # On ferme la modale et on rafraîchit la page pour voir le nouveau solde
         response = HttpResponse("")
@@ -147,6 +150,8 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
                 if meal_voucher_amount > 0 and db_tx_type == TransactionType.EXPENSE
                 else None,
             )
+
+        messages.success(request, "Dépense ajoutée")
 
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
