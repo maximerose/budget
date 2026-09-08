@@ -71,12 +71,15 @@
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
+    appearance: none;
     margin: 0;
   }
 
-  /* Firefox */
+  /* Reset standard des champs type number */
   input[type="number"] {
+    -webkit-appearance: none;
     -moz-appearance: textfield;
+    appearance: none;
   }
 }
 
@@ -103,12 +106,17 @@
   transition-duration: 150ms;
 
   &::placeholder {
-    color: #475569; /* slate-600 (ou #334155 pour slate-700 encore plus sombre) */
-    opacity: 0.5; /* Réduit l'opacité à 50% */
+    color: #475569; /* slate-600 */
+    opacity: 0.5;
   }
 
   &:focus {
     outline: none;
     border-color: var(--color-brand);
   }
+}
+
+/* Règle dynamique pour appliquer le pourcentage depuis data-progress */
+.progress-bar-fill {
+  width: calc(var(--progress-val, 0) * 1%);
 }

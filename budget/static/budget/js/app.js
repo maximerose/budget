@@ -47,3 +47,32 @@ document.body.addEventListener('htmx:confirm', (evt) => {
       if (result.isConfirmed) evt.detail.issueRequest(true);
   });
 });
+
+// =========================================================================
+// 4. FORMATAGE ET RESIZE DU CHAMP MONTANT (QUICK TRANSACTION)
+// =========================================================================
+function formatCurrency(inputEl, hiddenId) {
+    let raw = inputEl.value.replace(',', '.').replace(/[^0-9.-]/g, '');
+    const hiddenEl = document.getElementById(hiddenId);
+    if (hiddenEl) hiddenEl.value = raw;
+}
+
+function formatCurrencyOnBlur(inputEl, hiddenId) {
+    let hiddenEl = document.getElementById(hiddenId);
+    if (!hiddenEl) return;
+    let val = parseFloat(hiddenEl.value);
+    if (!isNaN(val)) {
+        inputEl.value = val.toFixed(2);
+    }
+}
+
+// Mise à jour automatique des barres de progression
+function syncProgressBars() {
+  document.querySelectorAll('.progress-bar-fill').forEach((el) => {
+    const val = el.getAttribute('data-progress') || '0';
+    el.style.setProperty('--progress-val', val);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', syncProgressBars);
+document.body.addEventListener('htmx:afterSettle', syncProgressBars);

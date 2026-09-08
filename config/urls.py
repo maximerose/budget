@@ -16,6 +16,7 @@ from budget.views.categories import (
     settings_category_merge_view,
 )
 from budget.views.dashboard import pay_recurring_expense_view
+from budget.views.forecast import forecast_list_view
 from budget.views.profile import (
     settings_generate_invite,
     settings_household_update,
@@ -77,6 +78,7 @@ urlpatterns = [
         monthly_history_view,
         name="monthly_history",
     ),
+    path("forecasts/", forecast_list_view, name="forecast_list"),
     # --- Paramètres & Configuration ---
     path("settings/accounts/", settings_accounts_list_view, name="settings_accounts"),
     path(

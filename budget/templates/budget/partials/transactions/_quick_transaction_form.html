@@ -39,7 +39,6 @@
                    value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}"
                    class="w-[4.5ch] bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none transition-all duration-75"
                    placeholder="0.00"
-                   required
                    autofocus
                    oninput="formatCurrency(this, 'total_amount'); autoResizeAmount();"
                    onblur="formatCurrencyOnBlur(this, 'total_amount')" />
@@ -61,64 +60,64 @@
     <!-- 3. Blocs de champs dynamiques -->
     <div id="block-expense">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id required=True %}
-            {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id required=True %}
-        </div>
+            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id %}
+            {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id %}
 
-        <!-- Section Tickets Resto -->
-        {% if tr_accounts_info %}
-            <div id="meal-voucher-wrapper"
-                 class="hidden mt-4 p-3 bg-slate-900/50 rounded-xl border border-brand-border">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox"
-                           id="use_meal_voucher"
-                           class="rounded border-slate-600 bg-slate-900 focus:ring-1 focus:ring-offset-0 focus:ring-offset-transparent text-brand"
-                           {% if transaction and transaction.meal_voucher_amount > 0 %}checked{% endif %}
-                           onchange="toggleMealVoucherAmount()" />
-                    <span class="text-sm font-medium text-slate-200">Régler avec Tickets Resto</span>
-                </label>
+            <!-- Section Tickets Resto -->
+            {% if tr_accounts_info %}
+                <div id="meal-voucher-wrapper"
+                     class="hidden mt-4 p-3 bg-slate-900/50 rounded-xl border border-brand-border">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox"
+                               id="use_meal_voucher"
+                               class="rounded border-slate-600 bg-slate-900 focus:ring-1 focus:ring-offset-0 focus:ring-offset-transparent text-brand"
+                               {% if transaction and transaction.meal_voucher_amount > 0 %}checked{% endif %}
+                               onchange="toggleMealVoucherAmount()" />
+                        <span class="text-sm font-medium text-slate-200">Régler avec Tickets Resto</span>
+                    </label>
 
-                <div id="meal-voucher-details"
-                     class="hidden pl-7 pt-3 mt-1 space-y-3 border-l-2 border-brand-border/60 ml-2">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Carte utilisée</label>
-                        <select id="meal_voucher_account_id"
-                                name="meal_voucher_account_id"
-                                class="input-base px-3 py-1.5 text-sm"
-                                onchange="updateTrMax()">
-                            {% for tr in tr_accounts_info %}
-                                <option value="{{ tr.id }}"
-                                        {% if transaction.meal_voucher_bank_account_id|stringformat:"s" == tr.id %}selected{% endif %}>{{ tr.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <div class="flex items-center justify-between">
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Montant déduit (TR)</label>
-                            <span id="tr-max-label" class="text-[10px] text-slate-400 font-bold"></span>
+                    <div id="meal-voucher-details"
+                         class="hidden pl-7 pt-3 mt-1 space-y-3 border-l-2 border-brand-border/60 ml-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Carte utilisée</label>
+                            <select id="meal_voucher_account_id"
+                                    name="meal_voucher_account_id"
+                                    class="input-base px-3 py-1.5 text-sm"
+                                    onchange="updateTrMax()">
+                                {% for tr in tr_accounts_info %}
+                                    <option value="{{ tr.id }}"
+                                            {% if transaction.meal_voucher_bank_account_id|stringformat:"s" == tr.id %}selected{% endif %}>{{ tr.name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
-                        <input type="number"
-                               id="meal_voucher_amount"
-                               name="meal_voucher_amount"
-                               step="0.01"
-                               value="{% if transaction and transaction.meal_voucher_amount %}{{ transaction.meal_voucher_amount|stringformat:'.2f' }}{% endif %}"
-                               class="input-base px-3 py-1.5 text-sm font-bold text-brand" />
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Montant déduit (TR)</label>
+                                <span id="tr-max-label" class="text-[10px] text-slate-400 font-bold"></span>
+                            </div>
+                            <input type="number"
+                                   id="meal_voucher_amount"
+                                   name="meal_voucher_amount"
+                                   step="0.01"
+                                   value="{% if transaction and transaction.meal_voucher_amount %}{{ transaction.meal_voucher_amount|stringformat:'.2f' }}{% endif %}"
+                                   class="input-base px-3 py-1.5 text-sm font-bold text-brand" />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Message d'alerte plafond atteint -->
-            <div id="tr-empty-message"
-                 class="hidden mt-4 p-3 bg-action-warning/10 text-action-warning rounded-xl border border-action-warning/30 text-sm text-center">
-                Vous avez atteint votre plafond Tickets Resto pour aujourd'hui.
-            </div>
-        {% endif %}
-    </div>
+                <!-- Message d'alerte plafond atteint -->
+                <div id="tr-empty-message"
+                     class="hidden mt-4 p-3 bg-action-warning/10 text-action-warning rounded-xl border border-action-warning/30 text-sm text-center">
+                    Vous avez atteint votre plafond Tickets Resto pour aujourd'hui.
+                </div>
+            {% endif %}
+        </div>
 
-    <div id="block-income" class="hidden">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id required=True %}
-            {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id required=True %}
+        <div id="block-income" class="hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id %}
+                {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
+            </div>
         </div>
     </div>
 
@@ -127,7 +126,7 @@
         <!-- Conteneur flex pour inclure le bouton d'inversion -->
         <div class="flex flex-col sm:flex-row sm:items-end gap-3">
             <div class="w-full sm:flex-1">
-                {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id required=True %}
+                {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id %}
             </div>
 
             <!-- Bouton Inverser (vertical sur mobile, horizontal sur Desktop) -->
@@ -146,7 +145,7 @@
             </div>
 
             <div class="w-full sm:flex-1">
-                {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts required=True %}
+                {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts %}
             </div>
         </div>
 

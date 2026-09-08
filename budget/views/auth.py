@@ -19,12 +19,9 @@ def join_household_view(request: Request, token: str) -> HttpResponse:
     if not invitation.is_valid:
         return render(request, "registration/invite_error.html", status=400)
 
-    # Si l'utilisateur est connecté, on lui demande confirmation
     if request.user.is_authenticated:
         if request.method == "POST":
-            member = HouseholdMember.objects.filter(
-                user=request.user, is_active=True
-            ).first()
+            member = request.member
             if member:
                 with transaction.atomic():
                     old_household = member.household
@@ -37,7 +34,6 @@ def join_household_view(request: Request, token: str) -> HttpResponse:
                         )
 
                         for old_cat in old_categories:
-                            # Cheche une catégorie homonyme dans le nouveau foyer
                             new_cat = Category.objects.filter(
                                 household=new_household,
                                 name__iexact=old_cat.name,
@@ -47,11 +43,10 @@ def join_household_view(request: Request, token: str) -> HttpResponse:
                             if new_cat:
                                 merge_categories(old_cat, new_cat)
                             else:
-                                # B. Import direct (si la catégorie n'existe pas)
                                 old_cat.household = new_household
                                 old_cat.save(update_fields=["household"])
 
-                        # 2. Transfert des charges fixes vers le nouveau foyer
+                        # 2. Transfert des charges fixes
                         RecurringExpense.objects.filter(household=old_household).update(
                             household=new_household
                         )
@@ -74,12 +69,10 @@ def join_household_view(request: Request, token: str) -> HttpResponse:
 
                 return redirect("dashboard")
 
-        # Requête GET : On affiche la page de confirmation
         return render(
             request, "registration/invite_confirm.html", {"invitation": invitation}
         )
 
-    # S'il n'est pas connecté, on sauvegarde le token et on l'envoie s'inscrire
     request.session["invite_token"] = str(invitation.token)
     return redirect("register")
 
@@ -93,13 +86,10 @@ def register_view(request: Request) -> HttpResponse:
         if form.is_valid():
             with transaction.atomic():
                 user = form.save()
-
                 display_name = form.cleaned_data.get("display_name")
 
-                # --- LOGIQUE D'INVITATION ---
                 invitation = form.cleaned_data.get("valid_invitation")
 
-                # Si pas de code foyer, on vérifie si la session contenait un token de lien magique
                 if not invitation:
                     token = request.session.get("invite_token")
                     if token:
@@ -108,13 +98,12 @@ def register_view(request: Request) -> HttpResponse:
                         ).first()
 
                 if invitation and invitation.is_valid:
-                    # L'utilisateur rejoint le foyer existant
                     household = invitation.household
                     invitation.accepted_by = user
                     invitation.save()
-                    del request.session["invite_token"]
+                    if "invite_token" in request.session:
+                        del request.session["invite_token"]
                 else:
-                    # Création automatique d'un nouveau foyer
                     household = Household.objects.create(
                         name=f"Foyer de {display_name}"
                     )

@@ -7,14 +7,14 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from budget.forms import BankAccountForm
-from budget.models import BankAccount, HouseholdMember
+from budget.models import BankAccount
 from budget.utils import htmx_login_required
 from core.models import Visibility
 
 
 @login_required
 def settings_accounts_list_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
 
     accounts = BankAccount.objects.filter(
         Q(owner=member)
@@ -36,7 +36,7 @@ def settings_accounts_list_view(request: Request) -> HttpResponse:
 def settings_account_form_view(
     request: Request, account_id: str | None = None
 ) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     account = None
 
     if account_id:
@@ -84,7 +84,7 @@ def settings_account_form_view(
 
 @htmx_login_required
 def settings_account_delete_view(request: Request, account_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     account = get_object_or_404(
         BankAccount,
         id=account_id,

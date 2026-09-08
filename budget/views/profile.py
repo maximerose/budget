@@ -6,17 +6,15 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
-from budget.models import HouseholdMember
 from budget.models.account import HouseholdInvitation
 from budget.utils import htmx_login_required
 
 
 @login_required
 def settings_profile_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
-    household = member.household
+    member = request.member
+    household = request.household
 
-    # Récupération de la dernière invitation valide
     invitations = HouseholdInvitation.objects.filter(
         household=household,
         accepted_by__isnull=True,
@@ -47,7 +45,7 @@ def settings_profile_view(request: Request) -> HttpResponse:
 
 @htmx_login_required
 def settings_profile_update(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
 
     if request.method == "POST":
         name = request.POST.get("name")
@@ -71,7 +69,7 @@ def settings_profile_update(request: Request) -> HttpResponse:
 
 @htmx_login_required
 def settings_household_update(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
 
     if request.method == "POST":
         name = request.POST.get("name")
@@ -88,7 +86,7 @@ def settings_household_update(request: Request) -> HttpResponse:
 
 @htmx_login_required
 def settings_generate_invite(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
 
     if request.method == "POST":
         HouseholdInvitation.objects.create(

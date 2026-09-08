@@ -8,12 +8,10 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from budget.models import BankAccount, HouseholdMember
+from budget.models import BankAccount, MonthlyForecast, RecurringExpense, Transaction
 from budget.models.account import AccountType
 from budget.models.category import CategoryType
-from budget.models.forecast import MonthlyForecast
-from budget.models.recurring import RecurringExpense
-from budget.models.transaction import Transaction, TransactionType, Transfer
+from budget.models.transaction import TransactionType, Transfer
 from budget.services.forecast import (
     calculate_monthly_projected_balances,
     create_transaction_from_recurring_expense,
@@ -26,7 +24,7 @@ from core.models import Visibility
 
 @login_required
 def dashboard_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
 
     if not member:
         return redirect("/login/")
@@ -37,147 +35,144 @@ def dashboard_view(request: Request) -> HttpResponse:
     variable_forecasts = []
     savings_forecasts = []
 
-    today = get_target_month_from_request(request)
+    target_month = get_target_month_from_request(request)
+    household = request.household
 
-    if member:
-        household = member.household
-        accounts = BankAccount.objects.filter(
-            Q(owner=member)
-            | Q(owner__household=household, visibility=Visibility.SHARED),
-            is_active=True,
-        ).distinct()
+    accounts = BankAccount.objects.filter(
+        Q(owner=member) | Q(owner__household=household, visibility=Visibility.SHARED),
+        is_active=True,
+    ).distinct()
 
-        # 1. 10 Dernières transactions (Dépenses, Revenus, TR)
-        recent_transactions = Transaction.objects.filter(
+    # 1. 10 Dernières transactions
+    recent_transactions = Transaction.objects.filter(
+        bank_account__in=accounts,
+        budget_month__year=target_month.year,
+        budget_month__month=target_month.month,
+    ).select_related(
+        "category",
+        "bank_account",
+        "bank_account__owner",
+        "meal_voucher_bank_account",
+    )[:10]
+
+    # 2. Charges fixes
+    recurring_expenses = get_recurring_expenses_with_status(member, target_month)
+
+    # 3. Enveloppes des charges variables restantes par catégorie
+    category_forecasts = MonthlyForecast.objects.filter(
+        Q(member=member) | Q(visibility=Visibility.SHARED),
+        member__household=household,
+        month__year=target_month.year,
+        month__month=target_month.month,
+        category__isnull=False,
+        category__type=CategoryType.VARIABLE,
+        is_active=True,
+    ).select_related("category", "member")
+
+    for forecast in category_forecasts:
+        category = forecast.category
+        realized = Transaction.objects.filter(
+            bank_account__owner=forecast.member,
             bank_account__in=accounts,
-            budget_month__year=today.year,
-            budget_month__month=today.month,
-        ).select_related(
-            "category",
-            "bank_account",
-            "bank_account__owner",
-            "meal_voucher_bank_account",
-        )[:10]
+            category=category,
+            recurring_expense__isnull=True,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            transaction_type=TransactionType.EXPENSE,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
 
-        # 2. Charges fixes
-        recurring_expenses = get_recurring_expenses_with_status(member, today)
+        remaining = max(Decimal("0.00"), forecast.amount - realized)
+        variable_forecasts.append(
+            {
+                "category": category,
+                "member": forecast.member,
+                "budget_amount": forecast.amount,
+                "realized_amount": realized,
+                "remaining_amount": remaining,
+            }
+        )
 
-        # 3. Enveloppes des charges variables restantes par catégorie
-        category_forecasts = MonthlyForecast.objects.filter(
-            Q(member=member) | Q(visibility=Visibility.SHARED),
-            member__household=household,
-            month__year=today.year,
-            month__month=today.month,
-            category__isnull=False,
-            category__type=CategoryType.VARIABLE,
-            is_active=True,
-        ).select_related("category", "member")
+    # 4. Enveloppes d'épargne restantes
+    savings_qs = MonthlyForecast.objects.filter(
+        Q(member=member) | Q(visibility=Visibility.SHARED),
+        member__household=household,
+        month__year=target_month.year,
+        month__month=target_month.month,
+        bank_account__isnull=False,
+        bank_account__account_type=AccountType.SAVINGS,
+        is_active=True,
+    ).select_related("bank_account", "member")
 
-        for forecast in category_forecasts:
-            category = forecast.category
-            realized = Transaction.objects.filter(
-                bank_account__owner=forecast.member,
-                bank_account__in=accounts,
-                category=category,
-                recurring_expense__isnull=True,
-                budget_month__year=today.year,
-                budget_month__month=today.month,
-                transaction_type=TransactionType.EXPENSE,
-            ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
+    for forecast in savings_qs:
+        target_account = forecast.bank_account
+        realized_transfers = Transfer.objects.filter(
+            source_account__owner=forecast.member,
+            destination_account=target_account,
+            source_account__in=accounts,
+            date__year=target_month.year,
+            date__month=target_month.month,
+        ).aggregate(Sum("amount"))["amount__sum"] or Decimal("0.00")
 
-            remaining = max(Decimal("0.00"), forecast.amount - realized)
-            variable_forecasts.append(
-                {
-                    "category": category,
-                    "member": forecast.member,
-                    "budget_amount": forecast.amount,
-                    "realized_amount": realized,
-                    "remaining_amount": remaining,
-                }
-            )
+        realized_tx = Transaction.objects.filter(
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+            bank_account=target_account,
+            transaction_type=TransactionType.INCOME,
+        ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
 
-        # 4. Enveloppes d'épargne restantes
-        savings_qs = MonthlyForecast.objects.filter(
-            Q(member=member) | Q(visibility=Visibility.SHARED),
-            member__household=household,
-            month__year=today.year,
-            month__month=today.month,
-            bank_account__isnull=False,
-            bank_account__account_type=AccountType.SAVINGS,
-            is_active=True,
-        ).select_related("bank_account", "member")
+        realized = realized_transfers + realized_tx
+        remaining = max(Decimal("0.00"), forecast.amount - realized)
 
-        for forecast in savings_qs:
-            target_account = forecast.bank_account
-            realized_transfers = Transfer.objects.filter(
-                source_account__owner=forecast.member,
-                destination_account=target_account,
-                source_account__in=accounts,
-                date__year=today.year,
-                date__month=today.month,
-            ).aggregate(Sum("amount"))["amount__sum"] or Decimal("0.00")
+        savings_forecasts.append(
+            {
+                "account": target_account,
+                "member": forecast.member,
+                "budget_amount": forecast.amount,
+                "realized_amount": realized,
+                "remaining_amount": remaining,
+            }
+        )
 
-            realized_tx = Transaction.objects.filter(
-                budget_month__year=today.year,
-                budget_month__month=today.month,
-                bank_account=target_account,
-                transaction_type=TransactionType.INCOME,
-            ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
-
-            realized = realized_transfers + realized_tx
-            remaining = max(Decimal("0.00"), forecast.amount - realized)
-
-            # On append bien dans la liste, et non dans le queryset
-            savings_forecasts.append(
-                {
-                    "account": target_account,
-                    "member": forecast.member,
-                    "budget_amount": forecast.amount,
-                    "realized_amount": realized,
-                    "remaining_amount": remaining,
-                }
-            )
-
-        # 5. Calcul des prévisions
-        projection_steps = calculate_monthly_projected_balances(member, today)
-        for account in accounts:
-            accounts_with_projections.append(
-                {
-                    "account": account,
-                    "totals": {
-                        "initial": round(
-                            projection_steps.get("initial", {}).get(
-                                account.id, Decimal("0.00")
-                            ),
-                            2,
+    # 5. Calcul des prévisions
+    projection_steps = calculate_monthly_projected_balances(member, target_month)
+    for account in accounts:
+        accounts_with_projections.append(
+            {
+                "account": account,
+                "totals": {
+                    "initial": round(
+                        projection_steps.get("initial", {}).get(
+                            account.id, Decimal("0.00")
                         ),
-                        "after_recurring": round(
-                            projection_steps.get("after_recurring", {}).get(
-                                account.id, Decimal("0.00")
-                            ),
-                            2,
+                        2,
+                    ),
+                    "after_recurring": round(
+                        projection_steps.get("after_recurring", {}).get(
+                            account.id, Decimal("0.00")
                         ),
-                        "after_variables": round(
-                            projection_steps.get("after_variables", {}).get(
-                                account.id, Decimal("0.00")
-                            ),
-                            2,
+                        2,
+                    ),
+                    "after_variables": round(
+                        projection_steps.get("after_variables", {}).get(
+                            account.id, Decimal("0.00")
                         ),
-                        "after_savings": round(
-                            projection_steps.get("after_savings", {}).get(
-                                account.id, Decimal("0.00")
-                            ),
-                            2,
+                        2,
+                    ),
+                    "after_savings": round(
+                        projection_steps.get("after_savings", {}).get(
+                            account.id, Decimal("0.00")
                         ),
-                        "after_incomes": round(
-                            projection_steps.get("after_incomes", {}).get(
-                                account.id, Decimal("0.00")
-                            ),
-                            2,
+                        2,
+                    ),
+                    "after_incomes": round(
+                        projection_steps.get("after_incomes", {}).get(
+                            account.id, Decimal("0.00")
                         ),
-                    },
-                }
-            )
+                        2,
+                    ),
+                },
+            }
+        )
 
     return render(
         request,
@@ -189,7 +184,7 @@ def dashboard_view(request: Request) -> HttpResponse:
             "variable_forecasts": variable_forecasts,
             "savings_forecasts": savings_forecasts,
             "accounts_data": accounts_with_projections,
-            "today": today,
+            "today": target_month,
         },
     )
 
@@ -197,10 +192,9 @@ def dashboard_view(request: Request) -> HttpResponse:
 @htmx_login_required
 def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpResponse:
     expense = get_object_or_404(RecurringExpense, id=expense_id)
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
-    today = timezone.localdate()
+    member = request.member
+    target_month = timezone.localdate()
 
-    # Récupération des comptes via la relation owner
     accounts = BankAccount.objects.filter(
         Q(owner=member)
         | Q(owner__household=member.household, visibility=Visibility.SHARED),
@@ -208,7 +202,6 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
         account_type__in=[AccountType.CHECKING, AccountType.BUSINESS],
     ).distinct()
 
-    # 1. FORMATAGE DU SELECT : On ajoute le nom du propriétaire si ce n'est pas le nôtre
     account_options = [
         {
             "id": acc.id,
@@ -219,14 +212,12 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
         for acc in accounts
     ]
 
-    # Compte par défaut initial si pas de POST
     target_account = get_target_account_for_expense(expense, member)
 
-    # 2. DÉTECTION DU MONTANT À PAYER (Exception du mois + Quote-part)
     override = MonthlyForecast.objects.filter(
         member__household=member.household,
-        month__year=today.year,
-        month__month=today.month,
+        month__year=target_month.year,
+        month__month=target_month.month,
         recurring_expense=expense,
         is_active=True,
     ).first()
@@ -236,8 +227,8 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
 
     realized_total = Transaction.objects.filter(
         recurring_expense=expense,
-        budget_month__year=today.year,
-        budget_month__month=today.month,
+        budget_month__year=target_month.year,
+        budget_month__month=target_month.month,
         transaction_type=TransactionType.EXPENSE,
     ).aggregate(Sum("total_amount"))["total_amount__sum"] or Decimal("0.00")
 
@@ -259,7 +250,6 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
             )
             shares_details.append({"name": owner_name, "amount": prorated})
 
-        # Si la charge est divisée, on cherche la part du membre connecté
         member_share = shares.filter(bank_account__in=accounts).first()
         if member_share:
             ratio = (
@@ -287,15 +277,13 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
             expense=expense,
             bank_account=target_account,
             amount=amount,
-            budget_month=today.replace(day=1),
+            budget_month=target_month.replace(day=1),
         )
 
-        # Si l'utilisateur a coché "Appliquer définitivement"
         if update_default:
             if shares.exists():
                 member_share = shares.filter(bank_account__in=accounts).first()
                 if member_share:
-                    # On ajuste la part du membre et on répercute la différence sur le total global de la charge
                     diff = amount - member_share.amount
                     member_share.amount = amount
                     member_share.save()
@@ -303,7 +291,6 @@ def pay_recurring_expense_view(request: Request, expense_id: str) -> HttpRespons
                     expense.total_amount += diff
                     expense.save()
             else:
-                # Si pas de partage, on met à jour le montant brut de la charge
                 expense.total_amount = amount
                 expense.save()
 

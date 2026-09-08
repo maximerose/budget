@@ -13,7 +13,6 @@ from django.views.decorators.http import require_http_methods
 from budget.models import (
     BankAccount,
     Category,
-    HouseholdMember,
     Transaction,
     TransactionType,
 )
@@ -38,13 +37,11 @@ def adjust_account_balance_view(
     if request.method == "POST":
         new_balance = Decimal(request.POST.get("new_balance", "0.00"))
 
-        # On met à jour le solde du compte et la date
         account.current_balance = new_balance
         account.save()
 
         messages.success(request, "Solde ajusté")
 
-        # On ferme la modale et on rafraîchit la page pour voir le nouveau solde
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
 
@@ -60,9 +57,7 @@ def adjust_account_balance_view(
 @htmx_login_required
 @require_http_methods(["GET", "POST"])
 def quick_transaction_form_view(request: Request) -> HttpResponse:
-    current_member = HouseholdMember.objects.filter(
-        user=request.user, is_active=True
-    ).first()
+    current_member = request.member
 
     if request.method == "POST":
         tx_type = request.POST.get("tx_type", "EXPENSE")
@@ -91,8 +86,7 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
             transfer_category_id = request.POST.get("transfer_category")
 
             if transfer_category_id:
-                # 1. Remboursement "Catégorisé" (Réaffectation de charge)
-                # L'émetteur de l'argent fait une dépense (+)
+                # Remboursement "Catégorisé"
                 Transaction.objects.create(
                     total_amount=total_amount,
                     label=label or "Remboursement envoyé",
@@ -102,7 +96,6 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
                     budget_month=budget_month,
                     transaction_type=TransactionType.EXPENSE,
                 )
-                # Le récepteur de l'argent annule sa dépense (-)
                 Transaction.objects.create(
                     total_amount=-total_amount,
                     label=label or "Remboursement reçu",
@@ -113,7 +106,7 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
                     transaction_type=TransactionType.EXPENSE,
                 )
             else:
-                # 2. Transfert simple d'épargne ou de gestion
+                # Transfert simple
                 Transfer.objects.create(
                     source_account_id=source_id,
                     destination_account_id=dest_id,
@@ -157,7 +150,7 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
         response["HX-Refresh"] = "true"
         return response
 
-    # --- Préparation des listes pour le formulaire (GET) ---
+    # --- GET ---
     categories_expense = Category.objects.filter(
         is_active=True, household=current_member.household
     ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
@@ -223,10 +216,8 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
 
 @htmx_login_required
 @require_http_methods(["GET", "POST"])
-def transaction_update_view(request, transaction_id: str):
-    current_member = HouseholdMember.objects.filter(
-        user=request.user, is_active=True
-    ).first()
+def transaction_update_view(request: Request, transaction_id: str) -> HttpResponse:
+    current_member = request.member
 
     tx = get_object_or_404(
         Transaction,
@@ -259,12 +250,9 @@ def transaction_update_view(request, transaction_id: str):
             dest_id = request.POST.get("destination_account")
             transfer_category_id = request.POST.get("transfer_category")
 
-            # La transaction actuelle est modifiée pour devenir un transfert (ou 2 transactions)
-            # On la supprime donc proprement (les signaux restaureront les soldes)
             tx.delete()
 
             if transfer_category_id:
-                # 1. Remboursement "Catégorisé" (Réaffectation de charge)
                 Transaction.objects.create(
                     total_amount=total_amount,
                     label=label or "Remboursement envoyé",
@@ -284,7 +272,6 @@ def transaction_update_view(request, transaction_id: str):
                     transaction_type=TransactionType.EXPENSE,
                 )
             else:
-                # 2. Transfert simple d'épargne ou de gestion
                 Transfer.objects.create(
                     source_account_id=source_id,
                     destination_account_id=dest_id,
@@ -330,7 +317,6 @@ def transaction_update_view(request, transaction_id: str):
         response["HX-Refresh"] = "true"
         return response
 
-    # --- Préparation des listes pour la modale en GET ---
     categories_expense = Category.objects.filter(
         is_active=True, household=current_member.household
     ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
@@ -375,7 +361,6 @@ def transaction_update_view(request, transaction_id: str):
 
     cat_tr_map = {str(c.id): c.is_meal_voucher_eligible for c in categories_expense}
 
-    # Calcul du budget_shift pour pré-sélectionner l'imputation (M-1, Ce mois, M+1)
     shift = 0
     if tx.budget_month and tx.transaction_date:
         tx_m = (tx.transaction_date.year, tx.transaction_date.month)
@@ -407,7 +392,7 @@ def transaction_update_view(request, transaction_id: str):
 
 @htmx_login_required
 def transaction_delete_view(request: Request, transaction_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     tx = get_object_or_404(
         Transaction,
         id=transaction_id,
@@ -425,9 +410,7 @@ def transaction_delete_view(request: Request, transaction_id: str) -> HttpRespon
 
 @htmx_login_required
 def monthly_history_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
-
-    # On récupère le mois ciblé depuis les paramètres de l'URL
+    member = request.member
     today = get_target_month_from_request(request)
 
     accounts = BankAccount.objects.filter(
@@ -436,7 +419,6 @@ def monthly_history_view(request: Request) -> HttpResponse:
         is_active=True,
     ).distinct()
 
-    # On récupère TOUTES les transactions du mois (sans la limite de 10)
     monthly_transactions = Transaction.objects.filter(
         bank_account__in=accounts,
         budget_month__year=today.year,
@@ -449,7 +431,6 @@ def monthly_history_view(request: Request) -> HttpResponse:
         "recurring_expense",
     )
 
-    # On renvoie directement la boucle HTML (pas de modale)
     return render(
         request,
         "budget/partials/transactions/_monthly_history_list.html",

@@ -1,0 +1,26 @@
+{% comment %}
+  Composant Progress Bar
+  Variables attendues :
+  - label (ex: "Courses")
+  - spent (ex: 150.00)
+  - allocated (ex: 200.00)
+{% endcomment %}
+
+{% load budget_tags %}
+
+{% build_progress_data spent allocated as pd %}
+
+<div class="space-y-1.5">
+  <div class="flex items-center justify-between text-xs">
+    <span class="font-semibold text-slate-200 truncate">{{ label }}</span>
+    <div class="text-right shrink-0">
+      <span class="font-extrabold {{ pd.text_color }}">{{ spent|stringformat:".2f" }} €</span>
+      <span class="text-slate-500 font-medium">/ {{ allocated|stringformat:".2f" }} €</span>
+    </div>
+  </div>
+
+  <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+    <div class="progress-bar-fill h-full transition-all duration-500 rounded-full {{ pd.bg_color }}"
+         data-progress="{{ pd.percentage|stringformat:'f' }}"></div>
+  </div>
+</div>

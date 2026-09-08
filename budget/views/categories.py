@@ -7,13 +7,13 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from budget.forms.category import CategoryForm
-from budget.models import Category, HouseholdMember
+from budget.models import Category
 from budget.utils import htmx_login_required, merge_categories
 
 
 @login_required
 def settings_categories_list_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     categories = Category.objects.filter(household=member.household, is_active=True)
 
     return render(
@@ -27,7 +27,7 @@ def settings_categories_list_view(request: Request) -> HttpResponse:
 def settings_category_form_view(
     request: Request, category_id: str | None = None
 ) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     category = None
 
     if category_id:
@@ -43,7 +43,9 @@ def settings_category_form_view(
                 new_category.household = member.household
             new_category.save()
 
-            messages.success("Catégorie créée")
+            messages.success(
+                request, "Catégorie créée" if not category_id else "Catégorie modifiée"
+            )
 
             response = HttpResponse("")
             response["HX-Refresh"] = "true"
@@ -72,7 +74,7 @@ def settings_category_form_view(
 
 @htmx_login_required
 def settings_category_delete_view(request: Request, category_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     category = get_object_or_404(
         Category, id=category_id, household=member.household, is_active=True
     )
@@ -93,7 +95,7 @@ def settings_category_delete_view(request: Request, category_id: str) -> HttpRes
 
 @htmx_login_required
 def settings_category_merge_view(request: Request, category_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     source_category = get_object_or_404(
         Category,
         id=category_id,
@@ -123,7 +125,6 @@ def settings_category_merge_view(request: Request, category_id: str) -> HttpResp
 
         return response
 
-    # Méthode GET : Affichage de la modale
     categories = Category.objects.filter(
         household=member.household, is_active=True
     ).exclude(id=source_category.id)

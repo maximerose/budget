@@ -4,11 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
 from budget.forms.recurring import RecurringExpenseForm, RecurringExpenseShareForm
-from budget.models import HouseholdMember, RecurringExpense
+from budget.models import RecurringExpense
 from budget.models.account import BankAccount
 from budget.models.recurring import RecurringExpenseShare
 from budget.services.forecast import get_recurring_expenses_with_status
@@ -18,8 +17,7 @@ from budget.utils import get_target_month_from_request, htmx_login_required
 @login_required
 @require_GET
 def settings_recurring_list_view(request: Request) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
-
+    member = request.member
     today = get_target_month_from_request(request)
 
     recurring_expenses = get_recurring_expenses_with_status(member, today)
@@ -36,7 +34,7 @@ def settings_recurring_list_view(request: Request) -> HttpResponse:
 def settings_recurring_form_view(
     request: Request, expense_id: str | None = None
 ) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     expense = None
 
     if expense_id:
@@ -52,7 +50,6 @@ def settings_recurring_form_view(
             new_expense = form.save(commit=False)
             if not expense_id:
                 new_expense.household = member.household
-                # Par défaut, le créateur devient le propriétaire de la charge (même si elle est partagée)
                 new_expense.owner = member
             new_expense.save()
 
@@ -80,7 +77,7 @@ def settings_recurring_form_view(
 
 @htmx_login_required
 def settings_recurring_delete_view(request: Request, expense_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     expense = get_object_or_404(
         RecurringExpense, id=expense_id, household=member.household, is_active=True
     )
@@ -98,7 +95,7 @@ def settings_recurring_delete_view(request: Request, expense_id: str) -> HttpRes
 
 @htmx_login_required
 def settings_recurring_shares_view(request: Request, expense_id: str) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     expense = get_object_or_404(
         RecurringExpense,
         id=expense_id,
@@ -164,7 +161,7 @@ def settings_recurring_shares_view(request: Request, expense_id: str) -> HttpRes
 def settings_recurring_share_delete_view(
     request: Request, expense_id: str, share_id: str
 ) -> HttpResponse:
-    member = HouseholdMember.objects.filter(user=request.user, is_active=True).first()
+    member = request.member
     expense = get_object_or_404(
         RecurringExpense, id=expense_id, household=member.household, is_active=True
     )
