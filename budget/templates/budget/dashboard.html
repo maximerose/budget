@@ -11,6 +11,89 @@
       {% include "budget/components/heading.html" with level="1" title="Tableau de bord" subtitle="Voici l'aperçu de tes finances ce mois-ci." %}
     </div>
 
+    <!-- ONBOARDING CHECKLIST INTERACTIVE -->
+    {% if not onboarding.is_complete %}
+      <section class="bg-slate-900/90 border border-brand/30 rounded-card p-6 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-brand-border/60 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0">
+              {% include "budget/components/icon.html" with name="light-bulb" class="w-5 h-5" %}
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-100">Prise en main de ton budget</h2>
+              <p class="text-xs text-slate-400">Complète ces étapes pour configurer ton espace.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+
+          <!-- 1. Ajouter un compte -->
+          <div {% if not onboarding.has_accounts %} hx-get="{% url 'settings_account_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_accounts' %}" onclick="highlightElement('#btn-add-account', this.dataset.url)" {% endif %}
+               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_accounts %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_accounts %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
+                {% if onboarding.has_accounts %}✓{% else %}1{% endif %}
+              </span>
+              <span class="text-xs font-semibold text-slate-200">Ajouter un compte</span>
+            </div>
+            <span class="text-xs text-brand font-bold">→</span>
+          </div>
+
+          <!-- 2. Personnaliser les catégories -->
+          <div {% if not onboarding.has_categories %} hx-get="{% url 'settings_category_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_categories' %}" onclick="window.location.href=this.dataset.url" {% endif %}
+               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_categories %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_categories %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
+                {% if onboarding.has_categories %}✓{% else %}2{% endif %}
+              </span>
+              <span class="text-xs font-semibold text-slate-200">Créer une catégorie</span>
+            </div>
+            <span class="text-xs text-brand font-bold">→</span>
+          </div>
+
+          <!-- 3. Déclarer une charge fixe -->
+          <div {% if not onboarding.has_recurring %} hx-get="{% url 'settings_recurring_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_recurring' %}" onclick="window.location.href=this.dataset.url" {% endif %}
+               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_recurring %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_recurring %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
+                {% if onboarding.has_recurring %}✓{% else %}3{% endif %}
+              </span>
+              <span class="text-xs font-semibold text-slate-200">Ajouter une charge fixe</span>
+            </div>
+            <span class="text-xs text-brand font-bold">→</span>
+          </div>
+
+          <!-- 4. Ajouter une transaction -->
+          <div hx-get="{% url 'quick_transaction_form' %}"
+               hx-target="#modal-container"
+               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_transactions %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_transactions %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
+                {% if onboarding.has_transactions %}✓{% else %}4{% endif %}
+              </span>
+              <span class="text-xs font-semibold text-slate-200">Saisir une dépense</span>
+            </div>
+            <span class="text-xs text-brand font-bold">→</span>
+          </div>
+
+          <!-- 5. Ajuster les prévisions -->
+          <div data-url="{% url 'forecast_list' %}"
+               onclick="window.location.href=this.dataset.url"
+               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_forecasts %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_forecasts %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
+                {% if onboarding.has_forecasts %}✓{% else %}5{% endif %}
+              </span>
+              <span class="text-xs font-semibold text-slate-200">Faire ses prévisions</span>
+            </div>
+            <span class="text-xs text-brand font-bold">→</span>
+          </div>
+
+        </div>
+      </section>
+    {% endif %}
+
     <!-- 1. COMPTES & SOLDES -->
     <section class="space-y-4">
       <div class="flex items-center gap-2">

@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from budget.models import BankAccount, MonthlyForecast, RecurringExpense, Transaction
 from budget.models.account import AccountType
-from budget.models.category import CategoryType
+from budget.models.category import Category, CategoryType
 from budget.models.transaction import TransactionType, Transfer
 from budget.services.forecast import (
     calculate_monthly_projected_balances,
@@ -174,6 +174,37 @@ def dashboard_view(request: Request) -> HttpResponse:
             }
         )
 
+    # Calcul de la Checklist d'Onboarding
+    has_accounts = len(accounts) > 0
+    has_categories = Category.objects.filter(
+        household=household, is_active=True
+    ).exists()
+    has_recurring = RecurringExpense.objects.filter(
+        household=household, is_active=True
+    ).exists()
+    has_transactions = Transaction.objects.filter(bank_account__in=accounts).exists()
+    has_forecasts = MonthlyForecast.objects.filter(
+        member__household=household, is_active=True
+    ).exists()
+
+    onboarding_checklist = {
+        "has_accounts": has_accounts,
+        "has_categories": has_categories,
+        "has_recurring": has_recurring,
+        "has_transactions": has_transactions,
+        "has_forecasts": has_forecasts,
+        # Si tout est complété, l'onboarding se masque automatiquement
+        "is_complete": all(
+            [
+                has_accounts,
+                has_categories,
+                has_recurring,
+                has_transactions,
+                has_forecasts,
+            ]
+        ),
+    }
+
     return render(
         request,
         "budget/dashboard.html",
@@ -185,6 +216,7 @@ def dashboard_view(request: Request) -> HttpResponse:
             "savings_forecasts": savings_forecasts,
             "accounts_data": accounts_with_projections,
             "today": target_month,
+            "onboarding": onboarding_checklist,
         },
     )
 
