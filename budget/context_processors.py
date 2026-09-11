@@ -57,13 +57,21 @@ def global_budget_context(request: Request) -> dict[str, Any]:
             "icon": "home",
         },
         {
+            "label": "Historique",
+            "url_name": "monthly_history",
+            "is_active": current_url_name == "monthly_history",
+            "icon": "clipboard-document-list",
+        },
+        {
+            "is_button": True,
+            "icon": "plus",
+        },
+        {
             "label": "Prévisions",
             "url_name": "forecast_list",
             "is_active": current_url_name == "forecast_list",
             "icon": "chart-bar",
         },
-        # ESPACE POUR LE BOUTON FLOTTANT D'ACTION.
-        {"is_spacer": True},
         {
             "label": "Statistiques",
             "url_name": "statistics",

@@ -31,6 +31,7 @@
       {% for m in budget_months_list %}
         <a hx-get="?month={{ m.url_value }}"
            hx-target="body"
+           hx-indicator="#page-loader"
            hx-swap="innerHTML show:none settle:100ms"
            hx-push-url="true"
            hx-trigger="click delay:250ms"

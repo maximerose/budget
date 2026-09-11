@@ -8,7 +8,7 @@
   /* Polices de caractères */
   --font-sans: "Outfit", sans-serif;
   --font-logo: "Satisfy", cursive;
-  
+
   /* Palette principale */
   --color-brand: #10b981;
   --color-brand-dark: #020617;
@@ -123,4 +123,46 @@
 /* Règle dynamique pour appliquer le pourcentage depuis data-progress */
 .progress-bar-fill {
   width: calc(var(--progress-val, 0) * 1%);
+}
+
+/* Écran de chargement global HTMX */
+#page-loader {
+  display: none;
+}
+#page-loader.htmx-request {
+  display: flex;
+}
+
+/* ========================================================================= */
+/* GESTION ROBUSTE DES ÉTATS DE CHARGEMENT HTMX                              */
+/* ========================================================================= */
+
+/* 1. Empêcher le double clic globalement sur l'élément déclencheur */
+.htmx-request {
+  pointer-events: none !important;
+  opacity: 0.8;
+}
+
+/* 2. Afficher un élément en FLEX pendant le chargement (ex: spinner SVG) */
+.htmx-show-flex {
+  display: none;
+}
+.htmx-request .htmx-show-flex,
+.htmx-request.htmx-show-flex {
+  display: flex !important;
+}
+
+/* 3. Afficher un élément en INLINE pendant le chargement (ex: texte) */
+.htmx-show-inline {
+  display: none;
+}
+.htmx-request .htmx-show-inline,
+.htmx-request.htmx-show-inline {
+  display: inline-block !important;
+}
+
+/* 4. Masquer un élément pendant le chargement (ex: icône par défaut) */
+.htmx-request .htmx-hide,
+.htmx-request.htmx-hide {
+  display: none !important;
 }

@@ -5,95 +5,17 @@
 {% block content %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <div class="space-y-6 mb-16 md:mb-0">
+  <div class="space-y-6">
+
+    <!-- 0. Sélecteur de mois -->
     <div class="bg-brand-card border border-brand-border p-3 sm:p-4 rounded-card shadow-sm">
       {% include "budget/components/month_selector.html" %}
     </div>
 
     <!-- ONBOARDING CHECKLIST INTERACTIVE -->
-    {% if not onboarding.is_complete %}
-      <section class="bg-slate-900/90 border border-brand/30 rounded-card p-6 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-brand-border/60 pb-3">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0">
-              {% include "budget/components/icon.html" with name="light-bulb" class="w-5 h-5" %}
-            </div>
-            <div>
-              <h2 class="text-base font-bold text-slate-100">Prise en main de ton budget</h2>
-              <p class="text-xs text-slate-400">Complète ces étapes pour configurer ton espace.</p>
-            </div>
-          </div>
-        </div>
+    {% include "budget/partials/_onboarding_checklist.html" %}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-
-          <!-- 1. Ajouter un compte -->
-          <div {% if not onboarding.has_accounts %} hx-get="{% url 'settings_account_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_accounts' %}" onclick="highlightElement('#btn-add-account', this.dataset.url)" {% endif %}
-               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_accounts %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_accounts %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
-                {% if onboarding.has_accounts %}✓{% else %}1{% endif %}
-              </span>
-              <span class="text-xs font-semibold text-slate-200">Ajouter un compte</span>
-            </div>
-            <span class="text-xs text-brand font-bold">→</span>
-          </div>
-
-          <!-- 2. Personnaliser les catégories -->
-          <div {% if not onboarding.has_categories %} hx-get="{% url 'settings_category_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_categories' %}" onclick="window.location.href=this.dataset.url" {% endif %}
-               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_categories %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_categories %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
-                {% if onboarding.has_categories %}✓{% else %}2{% endif %}
-              </span>
-              <span class="text-xs font-semibold text-slate-200">Créer une catégorie</span>
-            </div>
-            <span class="text-xs text-brand font-bold">→</span>
-          </div>
-
-          <!-- 3. Déclarer une charge fixe -->
-          <div {% if not onboarding.has_recurring %} hx-get="{% url 'settings_recurring_create' %}" hx-target="#modal-container" {% else %} data-url="{% url 'settings_recurring' %}" onclick="window.location.href=this.dataset.url" {% endif %}
-               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_recurring %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_recurring %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
-                {% if onboarding.has_recurring %}✓{% else %}3{% endif %}
-              </span>
-              <span class="text-xs font-semibold text-slate-200">Ajouter une charge fixe</span>
-            </div>
-            <span class="text-xs text-brand font-bold">→</span>
-          </div>
-
-          <!-- 4. Ajouter une transaction -->
-          <div hx-get="{% url 'quick_transaction_form' %}"
-               hx-target="#modal-container"
-               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_transactions %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_transactions %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
-                {% if onboarding.has_transactions %}✓{% else %}4{% endif %}
-              </span>
-              <span class="text-xs font-semibold text-slate-200">Saisir une dépense</span>
-            </div>
-            <span class="text-xs text-brand font-bold">→</span>
-          </div>
-
-          <!-- 5. Ajuster les prévisions -->
-          <div data-url="{% url 'forecast_list' %}"
-               onclick="window.location.href=this.dataset.url"
-               class="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between {% if onboarding.has_forecasts %}bg-slate-900/40 border-brand/20 opacity-60{% else %}bg-brand-card border-brand-border hover:border-brand{% endif %}">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {% if onboarding.has_forecasts %}bg-brand text-brand-dark{% else %}bg-slate-800 text-slate-400{% endif %}">
-                {% if onboarding.has_forecasts %}✓{% else %}5{% endif %}
-              </span>
-              <span class="text-xs font-semibold text-slate-200">Faire ses prévisions</span>
-            </div>
-            <span class="text-xs text-brand font-bold">→</span>
-          </div>
-
-        </div>
-      </section>
-    {% endif %}
-
-    <!-- 1. COMPTES & SOLDES -->
+    <!-- 1. COMPTES & SOLDES (État actuel) -->
     <section class="space-y-4">
       <div class="flex items-center gap-2">
         <div class="text-brand">{% include "budget/components/icon.html" with name="building-library" %}</div>
@@ -102,49 +24,10 @@
       {% include "budget/partials/accounts/_cards_list.html" %}
     </section>
 
-    <!-- 2. PRÉVISIONS MENSUELLES (La cascade) -->
-    <section class="space-y-4">
-      <div class="flex items-center gap-2">
-        <div class="text-action-info">{% include "budget/components/icon.html" with name="banknotes" %}</div>
-        {% include "budget/components/heading.html" with level="2" title="Prévisions mensuelles" subtitle="Estimation des soldes en fin de mois." %}
-      </div>
-      {% include "budget/partials/accounts/_cascade_projection.html" %}
-    </section>
+    <!-- 2. ACTIVITÉ RÉCENTE & SUIVI DES DÉPENSES (Axe opérationnel) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- 3. JAUGES DE PROGRESSION DES CHARGES VARIABLES (Réalisé vs Prévu) -->
-    {% if variable_forecasts %}
-      <section class="space-y-4">
-        <div class="bg-brand-card border border-brand-border p-5 rounded-card shadow-sm space-y-4">
-          <div class="flex items-center justify-between border-b border-brand-border/60 pb-3">
-            <div class="flex items-center gap-2">
-              <div class="text-brand">{% include "budget/components/icon.html" with name="bolt" %}</div>
-              {% include "budget/components/heading.html" with level="2" title="Suivi des Dépenses Variables" subtitle="Réalisé vs Prévu ce mois-ci" %}
-            </div>
-            <a href="{% url 'forecast_list' %}?month={{ today|date:'Y-m' }}"
-               class="text-xs font-semibold text-brand hover:underline">Ajuster mes prévisions →</a>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {% for vf in variable_forecasts %}
-              {% include "budget/components/progress_bar.html" with label=vf.category.name spent=vf.realized_amount allocated=vf.budget_amount %}
-            {% endfor %}
-          </div>
-        </div>
-      </section>
-    {% endif %}
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- 4. FLUX EN ATTENTE (Moitié gauche sur Desktop) -->
-      <div class="space-y-6">
-        <div class="flex items-center gap-2">
-          <div class="text-action-warning">{% include "budget/components/icon.html" with name="calendar" %}</div>
-          {% include "budget/components/heading.html" with level="2" title="Dépenses à venir" %}
-        </div>
-        {% include "budget/partials/recurring/_summary_list.html" %}
-        {% include "budget/partials/forecast/_forecasts_list.html" %}
-      </div>
-
-      <!-- 5. DERNIÈRES TRANSACTIONS (Moitié droite sur Desktop) -->
+      <!-- Gauche : Dernières Transactions -->
       <div class="space-y-4">
         <div class="flex items-center gap-2">
           <div class="text-slate-400">{% include "budget/components/icon.html" with name="arrows-right-left" %}</div>
@@ -152,7 +35,60 @@
         </div>
         {% include "budget/partials/transactions/_recent_list.html" %}
       </div>
+
+      <!-- Droite : Jauges de Progression des Dépenses Variables (Réalisé vs Prévu) -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="text-brand">{% include "budget/components/icon.html" with name="bolt" %}</div>
+            {% include "budget/components/heading.html" with level="2" title="Budget Dépenses Variables" %}
+          </div>
+          <a href="{% url 'forecast_list' %}?month={{ today|date:'Y-m' }}"
+             class="text-xs font-semibold text-brand hover:underline">Ajuster →</a>
+        </div>
+
+        <div class="bg-brand-card border border-brand-border p-5 rounded-card shadow-sm space-y-4">
+          {% for vf in variable_forecasts %}
+            {% include "budget/components/progress_bar.html" with label=vf.category.name spent=vf.realized_amount allocated=vf.budget_amount %}
+          {% empty %}
+            <p class="text-xs text-slate-500 py-2 text-center">Aucune prévision variable définie ce mois-ci.</p>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
+
+    <!-- 3. ANTICIPATION & ÉCHÉANCES -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Gauche : Charges fixes en attente -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <div class="text-action-warning">{% include "budget/components/icon.html" with name="calendar" %}</div>
+          {% include "budget/components/heading.html" with level="2" title="Charges à venir" %}
+        </div>
+        {% include "budget/partials/recurring/_summary_list.html" %}
+      </div>
+
+      <!-- Droite : Épargne prévue -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2">
+          <div class="text-budget-savings">{% include "budget/components/icon.html" with name="banknotes" %}</div>
+          {% include "budget/components/heading.html" with level="2" title="Objectifs d'Épargne du mois" %}
+        </div>
+        {% include "budget/partials/forecast/_savings_forecast.html" %}
+      </div>
+
+    </div>
+
+    <!-- 4. PROJECTION / CASCADE DE FIN DE MOIS -->
+    <section class="space-y-4 pt-4 border-t border-brand-border/60">
+      <div class="flex items-center gap-2">
+        <div class="text-action-info">{% include "budget/components/icon.html" with name="chart-bar" %}</div>
+        {% include "budget/components/heading.html" with level="2" title="Projections de fin de mois" subtitle="Estimation du solde final disponible après toutes les charges et épargnes." %}
+      </div>
+      {% include "budget/partials/accounts/_cascade_projection.html" %}
+    </section>
 
   </div>
 {% endblock %}

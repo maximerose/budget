@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Application de gestion de budget personnel et prévisionnel." />
     <title>{% block title %}{% endblock %} | Larfeuille</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
@@ -20,13 +21,23 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{% static 'budget/js/app.js' %}" defer></script>
+    <script src="{% static 'budget/js/quick_transaction.js' %}"></script>
   </head>
 
   <body class="font-sans min-h-screen flex flex-col antialiased selection:bg-brand selection:text-white"
-        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+        hx-boost="true"
+        hx-indicator="#page-loader">
+
+    <!-- ÉCRAN DE CHARGEMENT GLOBAL (Appelé via hx-indicator="#page-loader") -->
+    <div id="page-loader"
+         class="htmx-show-flex fixed inset-0 z-100 bg-brand-dark/80 backdrop-blur-sm flex-col items-center justify-center gap-4 pointer-events-none transition-opacity duration-300">
+      <div class="w-12 h-12 border-4 border-brand/20 border-t-brand rounded-full animate-spin"></div>
+      <span class="text-base font-bold text-slate-200 tracking-wide">Chargement en cours...</span>
+    </div>
 
     {% if request.user.is_authenticated %}
-      <!-- Top Navigation Bar (Verrouillée en FIXED) -->
+      <!-- Top Navigation Bar -->
       <header class="fixed top-0 left-0 right-0 z-40 bg-brand-card/90 backdrop-blur-md border-b border-brand-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16 gap-2">
@@ -36,14 +47,11 @@
                   <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                     <!-- Les 3 tiges -->
                     <path d="M6 3v18M12 3v18M18 3v18" stroke="currentColor" stroke-width="1.5" class="text-slate-600" stroke-linecap="round" />
-
                     <!-- Les billes formant le L -->
                     <g class="text-brand" fill="currentColor">
-                    <!-- Tige gauche -->
                     <circle cx="6" cy="6" r="2.5" class="group-hover:-translate-y-0.5 transition-transform" />
                     <circle cx="6" cy="12" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-75" />
                     <circle cx="6" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
-                    <!-- Base horizontale -->
                     <circle cx="12" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
                     <circle cx="18" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
                     </g>
@@ -51,8 +59,9 @@
                 </div>
 
                 <div class="flex items-center gap-2 truncate tracking-tight overflow-visible">
-                  <!-- Logo en Satisfy : Blanc pur, lisible et harmonieux -->
-                  <span class="font-logo text-2xl text-slate-100 group-hover:text-brand transition-colors pl-1 pb-1">Larfeuil</span>
+                  <!-- Logo en Satisfy -->
+                  <span class="font-logo text-2xl text-slate-100 group-hover:text-brand transition-colors pl-1 pb-1"
+                        id="brand-logo">Larfeuil</span>
 
                   <!-- Fil d'ariane sur mobile -->
                   <div class="md:hidden flex items-center gap-2 text-base font-bold">
@@ -68,9 +77,10 @@
                 </div>
               </a>
             </div>
+
             <nav class="hidden md:flex items-center gap-8 ml-auto">
               {% for item in main_menu %}
-                {% if not item.is_spacer %}
+                {% if not item.is_button and not item.is_spacer %}
                   <a href="{% url item.url_name %}"
                      class="flex items-center gap-2 text-sm font-medium transition-colors {% if item.is_active %}text-brand font-bold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
                     {% include "budget/components/icon.html" with name=item.icon class="w-5 h-5" %}
@@ -84,30 +94,22 @@
       </header>
     {% endif %}
 
-    <!-- Main Content Container (pt-20/pt-24 décale le contenu sous le header fixe) -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-20{% else %}py-6{% endif %}">
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-24 md:pb-12{% else %}py-6{% endif %}">
       {% block content %}{% endblock %}
     </main>
 
-    <!-- Éléments réservés aux utilisateurs connectés -->
     {% if request.user.is_authenticated %}
       {% include "budget/partials/shared/_bottom_nav.html" %}
 
-      <!-- Bouton Flottant (FAB) -->
-      <button hx-get="{% url 'quick_transaction_form' %}"
-              hx-target="#modal-container"
-              hx-swap="innerHTML"
-              class="fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-40 w-14 h-14 bg-action-primary hover:bg-action-primary-hover text-brand-dark font-bold rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all active:scale-95 cursor-pointer">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v12m6-6H6" />
-        </svg>
-      </button>
+      <!-- Bouton Flottant (FAB) Desktop -->
+      <div class="hidden md:flex fixed bottom-8 right-8 z-40">
+        {% include "budget/components/quick_add_button.html" with custom_class="" inner_class="w-14 h-14 rounded-full" show_label=False %}
+      </div>
     {% endif %}
 
-    <!-- Conteneur pour Modales -->
     <div id="modal-container"></div>
 
-    <!-- Injection des messages pour le JS (Invisible et 100% valide pour le linter) -->
     {% if messages %}
       <div id="django-messages" class="hidden">
         {% for message in messages %}

@@ -5,6 +5,7 @@ from urllib.request import Request
 
 from django.contrib import messages
 from django.db.models import Q
+from django.db.models.aggregates import Min
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -23,7 +24,6 @@ from budget.utils import (
     advance_date,
     calculate_budget_month,
     get_remaining_meal_voucher_ceiling,
-    get_target_month_from_request,
     htmx_login_required,
 )
 
@@ -58,6 +58,7 @@ def adjust_account_balance_view(
 @require_http_methods(["GET", "POST"])
 def quick_transaction_form_view(request: Request) -> HttpResponse:
     current_member = request.member
+    household = request.household
 
     if request.method == "POST":
         tx_type = request.POST.get("tx_type", "EXPENSE")
@@ -151,21 +152,38 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
         return response
 
     # --- GET ---
-    categories_expense = Category.objects.filter(
-        is_active=True, household=current_member.household
-    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
+    categories_expense = list(
+        Category.objects.filter(is_active=True, household=household)
+        .exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
+        .only("id", "name", "is_meal_voucher_eligible")
+    )
 
-    categories_income = Category.objects.filter(
-        is_active=True, household=current_member.household, type=CategoryType.INCOME
-    ).exclude(type=CategoryType.SAVINGS)
+    categories_income = list(
+        Category.objects.filter(
+            is_active=True, household=household, type=CategoryType.INCOME
+        )
+        .exclude(type=CategoryType.SAVINGS)
+        .only("id", "name")
+    )
 
-    accounts = BankAccount.objects.filter(
-        Q(owner=current_member)
-        | Q(owner__household=current_member.household, visibility=Visibility.SHARED),
-        is_active=True,
-    ).distinct()
+    accounts = list(
+        BankAccount.objects.filter(
+            Q(owner=current_member)
+            | Q(owner__household=household, visibility=Visibility.SHARED),
+            is_active=True,
+        )
+        .select_related("owner")
+        .distinct()
+    )
 
-    default_account = accounts.filter(owner=current_member, is_default=True).first()
+    default_account = next(
+        (
+            acc
+            for acc in accounts
+            if acc.owner_id == current_member.id and acc.is_default
+        ),
+        None,
+    )
     selected_account_id = default_account.id if default_account else None
 
     account_options = [
@@ -180,21 +198,51 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
 
     today = timezone.localdate()
 
-    tr_accounts = accounts.filter(account_type=AccountType.MEAL_VOUCHER)
+    tr_accounts = [
+        acc for acc in accounts if acc.account_type == AccountType.MEAL_VOUCHER
+    ]
     tr_accounts_info = []
 
-    for tr in tr_accounts:
-        rem = get_remaining_meal_voucher_ceiling(today, tr) or Decimal("0.00")
-        tr_accounts_info.append(
-            {
-                "id": str(tr.id),
-                "name": tr.name,
-                "remaining": float(rem),
-                "fallback_id": str(tr.fallback_account_id)
-                if tr.fallback_account_id
-                else "",
-            }
+    if tr_accounts:
+        # Récupération en une seule requête plate sans subqueries complexes
+        today_txs = list(
+            Transaction.objects.filter(
+                transaction_date=today,
+                transaction_type=TransactionType.EXPENSE,
+            ).only(
+                "bank_account_id",
+                "meal_voucher_bank_account_id",
+                "total_amount",
+                "meal_voucher_amount",
+            )
         )
+
+        for tr in tr_accounts:
+            limit = tr.daily_meal_voucher_limit or Decimal("25.00")
+
+            spent_as_tr = sum(
+                tx.meal_voucher_amount
+                for tx in today_txs
+                if tx.meal_voucher_bank_account_id == tr.id
+            )
+            spent_as_main = sum(
+                (tx.total_amount - tx.meal_voucher_amount)
+                for tx in today_txs
+                if tx.bank_account_id == tr.id
+            )
+
+            remaining = max(Decimal("0.00"), limit - (spent_as_tr + spent_as_main))
+
+            tr_accounts_info.append(
+                {
+                    "id": str(tr.id),
+                    "name": tr.name,
+                    "remaining": float(remaining),
+                    "fallback_id": str(tr.fallback_account_id)
+                    if tr.fallback_account_id
+                    else "",
+                }
+            )
 
     cat_tr_map = {str(c.id): c.is_meal_voucher_eligible for c in categories_expense}
 
@@ -218,6 +266,7 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
 @require_http_methods(["GET", "POST"])
 def transaction_update_view(request: Request, transaction_id: str) -> HttpResponse:
     current_member = request.member
+    household = request.household
 
     tx = get_object_or_404(
         Transaction,
@@ -318,18 +367,22 @@ def transaction_update_view(request: Request, transaction_id: str) -> HttpRespon
         return response
 
     categories_expense = Category.objects.filter(
-        is_active=True, household=current_member.household
+        is_active=True, household=household
     ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
 
     categories_income = Category.objects.filter(
-        is_active=True, household=current_member.household, type=CategoryType.INCOME
+        is_active=True, household=household, type=CategoryType.INCOME
     ).exclude(type=CategoryType.SAVINGS)
 
-    accounts = BankAccount.objects.filter(
-        Q(owner=current_member)
-        | Q(owner__household=current_member.household, visibility=Visibility.SHARED),
-        is_active=True,
-    ).distinct()
+    accounts = (
+        BankAccount.objects.filter(
+            Q(owner=current_member)
+            | Q(owner__household=household, visibility=Visibility.SHARED),
+            is_active=True,
+        )
+        .select_related("owner")
+        .distinct()
+    )
 
     account_options = [
         {
@@ -341,7 +394,9 @@ def transaction_update_view(request: Request, transaction_id: str) -> HttpRespon
         for acc in accounts
     ]
 
-    tr_accounts = accounts.filter(account_type=AccountType.MEAL_VOUCHER)
+    tr_accounts = [
+        acc for acc in accounts if acc.account_type == AccountType.MEAL_VOUCHER
+    ]
     tr_accounts_info = [
         {
             "id": str(tr.id),
@@ -410,34 +465,114 @@ def transaction_delete_view(request: Request, transaction_id: str) -> HttpRespon
 
 @htmx_login_required
 def monthly_history_view(request: Request) -> HttpResponse:
-    member = request.member
-    today = get_target_month_from_request(request)
+    household = request.household
+    today = timezone.localdate().replace(day=1)
 
-    accounts = BankAccount.objects.filter(
-        Q(owner=member)
-        | Q(owner__household=member.household, visibility=Visibility.SHARED),
-        is_active=True,
-    ).distinct()
+    # 1. Bornes globales
+    min_tx_date = Transaction.objects.filter(
+        bank_account__owner__household=household
+    ).aggregate(m=Min("budget_month"))["m"]
 
-    monthly_transactions = Transaction.objects.filter(
-        bank_account__in=accounts,
-        budget_month__year=today.year,
-        budget_month__month=today.month,
-    ).select_related(
-        "category",
-        "bank_account",
-        "bank_account__owner",
-        "meal_voucher_bank_account",
-        "recurring_expense",
+    start_boundary = min_tx_date.replace(day=1) if min_tx_date else today
+    end_boundary = today
+
+    # 2. Récupération des filtres de dates
+    start_str = request.GET.get("start_month")
+    end_str = request.GET.get("end_month")
+
+    try:
+        start_date = (
+            datetime.date.fromisoformat(f"{start_str}-01")
+            if start_str
+            else start_boundary
+        )
+    except ValueError:
+        start_date = start_boundary
+
+    try:
+        end_date = (
+            datetime.date.fromisoformat(f"{end_str}-01") if end_str else end_boundary
+        )
+    except ValueError:
+        end_date = end_boundary
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    # 3. Liste des mois inclus
+    selected_months = []
+    curr = start_date
+    while curr <= end_date:
+        selected_months.append(curr)
+        curr = advance_date(curr, 1)
+
+    next_month_after_end = advance_date(end_date, 1)
+
+    # 4. Requête globale filtrée
+    transactions_qs = (
+        Transaction.objects.filter(
+            bank_account__owner__household=household,
+            budget_month__gte=start_date,
+            budget_month__lt=next_month_after_end,
+        )
+        .select_related(
+            "bank_account", "bank_account__owner", "category", "recurring_expense"
+        )
+        .order_by("-transaction_date", "-created_at")
     )
 
-    return render(
-        request,
-        "budget/transactions/history_list.html",
-        {
-            "monthly_transactions": monthly_transactions,
-            "member": member,
-            "today": today,
-            "breadcrumbs": ["Historique des transactions"],
-        },
-    )
+    # 5. Groupement par mois
+    history_by_month = []
+    for m_date in reversed(selected_months):
+        month_txs = [
+            tx
+            for tx in transactions_qs
+            if tx.budget_month.year == m_date.year
+            and tx.budget_month.month == m_date.month
+        ]
+
+        if month_txs:
+            total_income = sum(
+                (
+                    tx.total_amount
+                    for tx in month_txs
+                    if tx.transaction_type == "INCOME"
+                ),
+                Decimal("0.00"),
+            )
+            total_expense = sum(
+                (
+                    tx.total_amount
+                    for tx in month_txs
+                    if tx.transaction_type == "EXPENSE"
+                ),
+                Decimal("0.00"),
+            )
+            net_balance = total_income - total_expense
+
+            history_by_month.append(
+                {
+                    "date": m_date,
+                    "transactions": month_txs,
+                    "total_income": total_income,
+                    "total_expense": total_expense,
+                    "net_balance": net_balance,
+                }
+            )
+
+    available_months = []
+    curr = start_boundary
+    while curr <= end_boundary:
+        available_months.append(curr)
+        curr = advance_date(curr, 1)
+
+    context = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "available_months": available_months,
+        "history_by_month": history_by_month,
+        "member": request.member,
+        "breadcrumbs": ["Historique des transactions"],
+    }
+
+    return render(request, "budget/transactions/history_list.html", context)
