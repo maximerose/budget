@@ -1,0 +1,10 @@
+{% for item in breadcrumbs %}
+  {% if forloop.last %}
+    <!-- Dernier élément : En vert -->
+    <span class="text-brand">{{ item }}</span>
+  {% else %}
+    <!-- Éléments parents : En gris + Séparateur -->
+    <span class="text-slate-300">{{ item }}</span>
+    <span class="text-slate-600 font-normal mx-1.5">/</span>
+  {% endif %}
+{% endfor %}

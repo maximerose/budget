@@ -39,6 +39,7 @@ def settings_profile_view(request: Request) -> HttpResponse:
             "household": household,
             "invite_url": invite_url,
             "invite_code": invite_code,
+            "breadcrumbs": ["Paramètres", "Foyer & profil"],
         },
     )
 

@@ -28,6 +28,7 @@ def settings_accounts_list_view(request: Request) -> HttpResponse:
         {
             "accounts": accounts,
             "member": member,
+            "breadcrumbs": ["Paramètres", "Comptes"],
         },
     )
 
@@ -52,12 +53,17 @@ def settings_account_form_view(
         if form.is_valid():
             new_account = form.save(commit=False)
 
-            if not account_id:
+            is_creation = account_id is None
+
+            if is_creation:
                 new_account.owner = member
 
             new_account.save()
 
-            messages.success(request, "Compte modifié")
+            if is_creation:
+                messages.success(request, "Compte ajouté")
+            else:
+                messages.success(request, "Compte modifié")
 
             response = HttpResponse("")
             response["HX-Refresh"] = "true"

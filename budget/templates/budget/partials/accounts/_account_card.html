@@ -16,7 +16,10 @@
       {% include "budget/components/badge.html" with text=account.get_account_type_display variant=account.account_type|lower %}
       <!-- djlint:on -->
       {% if account.visibility == 'PRIVATE' %}
-        <span title="Compte Privé">{% include "budget/components/icon.html" with name="lock-closed" %}</span>
+        <!-- NOUVEAU CADENAS : Couleur Ambre pour le côté "Coffre-fort / Privé" -->
+        <span title="Compte Privé" class="flex items-center cursor-help">
+          {% include "budget/components/icon.html" with name="lock-closed" class="w-4 h-4 text-amber-400/90 hover:text-amber-300 transition-colors" %}
+        </span>
       {% endif %}
     </div>
     {% if account.is_default %}
@@ -44,9 +47,8 @@
               hx-target="#modal-container"
               title="Ajuster le solde"
               class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors text-xs flex items-center gap-1 cursor-pointer">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
+        <!-- NOUVELLE ICÔNE AJUSTER -->
+        {% include "budget/components/icon.html" with name="pencil" class="w-4 h-4" %}
       </button>
     {% endif %}
   </div>

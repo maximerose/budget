@@ -18,7 +18,7 @@
       {% if form.name.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.name.errors.0 }}</p>{% endif %}
     </div>
     <div>
-      {% include "budget/components/currency_input.html" with label="Solde actuel (€)" name="current_balance" value=form.current_balance.value|stringformat:'.2f'|default:"0.00" required=True %}
+      {% include "budget/components/currency_input.html" with label="Solde actuel (€)" name="current_balance" value=form.current_balance.value|default_if_none:0 required=True %}
       {% if form.current_balance.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.current_balance.errors.0 }}</p>{% endif %}
     </div>
   </div>
@@ -54,7 +54,7 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        {% include "budget/components/currency_input.html" with label="Limite journalière (€)" name="daily_meal_voucher_limit" value=form.daily_meal_voucher_limit.value|default_if_none:"25.00" %}
+        {% include "budget/components/currency_input.html" with label="Limite journalière (€)" name="daily_meal_voucher_limit" value=form.daily_meal_voucher_limit.value|default_if_none:25 %}
         {% if form.daily_meal_voucher_limit.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.daily_meal_voucher_limit.errors.0 }}</p>{% endif %}
       </div>
       <div>

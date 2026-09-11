@@ -217,6 +217,7 @@ def dashboard_view(request: Request) -> HttpResponse:
             "accounts_data": accounts_with_projections,
             "today": target_month,
             "onboarding": onboarding_checklist,
+            "breadcrumbs": ["Tableau de bord"],
         },
     )
 

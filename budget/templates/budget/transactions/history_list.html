@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Historique des transactions{% endblock %}
+
+{% block content %}
+  <div class="space-y-6 mb-16 md:mb-0">
+    <!-- Filtre des mois (Le ruban glissant) -->
+    <div class="bg-brand-card border border-brand-border p-3 sm:p-4 rounded-card shadow-sm">
+      {% include "budget/components/month_selector.html" %}
+    </div>
+
+    <!-- Conteneur principal de la liste -->
+    <section class="bg-brand-card border border-brand-border rounded-card shadow-sm overflow-hidden divide-y divide-brand-border/60">
+      {% include "budget/partials/transactions/_monthly_history_list.html" %}
+    </section>
+
+  </div>
+{% endblock %}

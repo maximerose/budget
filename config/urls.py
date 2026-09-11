@@ -30,6 +30,7 @@ from budget.views.recurring import (
     settings_recurring_share_delete_view,
     settings_recurring_shares_view,
 )
+from budget.views.statistics import statistics_view
 from budget.views.transactions import (
     adjust_account_balance_view,
     monthly_history_view,
@@ -45,13 +46,31 @@ urlpatterns = [
         auth_views.LoginView.as_view(redirect_authenticated_user=True),
         name="login",
     ),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("register/", register_view, name="register"),
-    path("join/<str:token>/", join_household_view, name="join_household"),
-    # --- Application ---
-    path("", dashboard_view, name="dashboard"),
     path(
-        "quick-transaction/", quick_transaction_form_view, name="quick_transaction_form"
+        "logout/",
+        auth_views.LogoutView.as_view(),
+        name="logout",
+    ),
+    path(
+        "register/",
+        register_view,
+        name="register",
+    ),
+    path(
+        "join/<str:token>/",
+        join_household_view,
+        name="join_household",
+    ),
+    # --- Application ---
+    path(
+        "",
+        dashboard_view,
+        name="dashboard",
+    ),
+    path(
+        "quick-transaction/",
+        quick_transaction_form_view,
+        name="quick_transaction_form",
     ),
     path(
         "account/<str:account_id>/adjust/",
@@ -78,9 +97,22 @@ urlpatterns = [
         monthly_history_view,
         name="monthly_history",
     ),
-    path("forecasts/", forecast_list_view, name="forecast_list"),
+    path(
+        "forecasts/",
+        forecast_list_view,
+        name="forecast_list",
+    ),
+    path(
+        "statistics/",
+        statistics_view,
+        name="statistics",
+    ),
     # --- Paramètres & Configuration ---
-    path("settings/accounts/", settings_accounts_list_view, name="settings_accounts"),
+    path(
+        "settings/accounts/",
+        settings_accounts_list_view,
+        name="settings_accounts",
+    ),
     path(
         "settings/accounts/create/",
         settings_account_form_view,
@@ -151,7 +183,11 @@ urlpatterns = [
         settings_recurring_share_delete_view,
         name="settings_recurring_share_delete",
     ),
-    path("settings/profile/", settings_profile_view, name="settings_profile"),
+    path(
+        "settings/profile/",
+        settings_profile_view,
+        name="settings_profile",
+    ),
     path(
         "settings/profile/update/",
         settings_profile_update,

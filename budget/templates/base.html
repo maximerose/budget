@@ -5,7 +5,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Application de gestion de budget personnel et prévisionnel." />
-    <title>{% block title %}Gestion de Budget{% endblock %}</title>
+    <title>{% block title %}{% endblock %} | Larfeuille</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Satisfy&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" href="{% static 'budget/css/output.css' %}" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet"
@@ -16,7 +22,7 @@
     <script src="{% static 'budget/js/app.js' %}" defer></script>
   </head>
 
-  <body class="min-h-screen flex flex-col font-sans antialiased selection:bg-brand selection:text-white"
+  <body class="font-sans min-h-screen flex flex-col antialiased selection:bg-brand selection:text-white"
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
     {% if request.user.is_authenticated %}
@@ -24,20 +30,55 @@
       <header class="fixed top-0 left-0 right-0 z-40 bg-brand-card/90 backdrop-blur-md border-b border-brand-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16 gap-2">
+            <div class="flex items-center gap-2 shrink-0">
+              <a href="{% url 'dashboard' %}" class="flex items-center gap-2.5 transition-all group">
+                <div class="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-slate-700 transition-colors border border-slate-700">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <!-- Les 3 tiges -->
+                    <path d="M6 3v18M12 3v18M18 3v18" stroke="currentColor" stroke-width="1.5" class="text-slate-600" stroke-linecap="round" />
 
-            <!-- Logo & Titre (Se réduisent au scroll sur mobile) -->
-            <a href="{% url 'dashboard' %}"
-               id="brand-logo"
-               class="flex items-center gap-2 shrink-0 transition-all duration-300 origin-left">
-              <div class="w-8 h-8 sm:w-9 sm:h-9 bg-brand rounded-xl flex items-center justify-center font-bold text-brand-dark shadow-lg shadow-emerald-500/20 text-sm sm:text-base">
-                €
-              </div>
-              <span class="font-bold text-base sm:text-lg text-slate-100 tracking-tight hidden xs:inline sm:inline">Mon Budget</span>
-            </a>
+                    <!-- Les billes formant le L -->
+                    <g class="text-brand" fill="currentColor">
+                    <!-- Tige gauche -->
+                    <circle cx="6" cy="6" r="2.5" class="group-hover:-translate-y-0.5 transition-transform" />
+                    <circle cx="6" cy="12" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-75" />
+                    <circle cx="6" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
+                    <!-- Base horizontale -->
+                    <circle cx="12" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
+                    <circle cx="18" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
+                    </g>
+                  </svg>
+                </div>
 
-            <!-- Sélecteur de Mois (Prend toute la place sur mobile) -->
-            <div class="flex-1 w-full sm:max-w-sm sm:ml-4">{% include "budget/components/month_selector.html" %}</div>
+                <div class="flex items-center gap-2 truncate tracking-tight overflow-visible">
+                  <!-- Logo en Satisfy : Blanc pur, lisible et harmonieux -->
+                  <span class="font-logo text-2xl text-slate-100 group-hover:text-brand transition-colors pl-1 pb-1">Larfeuil</span>
 
+                  <!-- Fil d'ariane sur mobile -->
+                  <div class="md:hidden flex items-center gap-2 text-base font-bold">
+                    <span class="text-slate-600 font-normal">/</span>
+                    {% block header_title %}
+                      {% if breadcrumbs %}
+                        {% include "budget/components/breadcrumb.html" %}
+                      {% else %}
+                        <span class="text-brand">Accueil</span>
+                      {% endif %}
+                    {% endblock %}
+                  </div>
+                </div>
+              </a>
+            </div>
+            <nav class="hidden md:flex items-center gap-8 ml-auto">
+              {% for item in main_menu %}
+                {% if not item.is_spacer %}
+                  <a href="{% url item.url_name %}"
+                     class="flex items-center gap-2 text-sm font-medium transition-colors {% if item.is_active %}text-brand font-bold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+                    {% include "budget/components/icon.html" with name=item.icon class="w-5 h-5" %}
+                    {{ item.label }}
+                  </a>
+                {% endif %}
+              {% endfor %}
+            </nav>
           </div>
         </div>
       </header>

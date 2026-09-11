@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Prévisions Budgétaires | Mon Budget{% endblock %}
+{% block title %}Prévisions budgétaires{% endblock %}
 
 {% block content %}
   <div class="max-w-5xl mx-auto space-y-6">
-
-    <!-- En-tête simplifié (le sélecteur est déjà dans le Header fixe) -->
-    <div class="flex items-center justify-between gap-4">
-      {% include "budget/components/heading.html" with title="Prévisions Budgétaires" subtitle="Saisissez et projetez vos enveloppes comme dans un tableur." %}
+    <div class="bg-brand-card border border-brand-border p-3 sm:p-4 rounded-card shadow-sm">
+      {% include "budget/components/month_selector.html" %}
     </div>
 
     <form method="post" class="space-y-6">

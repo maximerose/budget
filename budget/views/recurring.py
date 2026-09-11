@@ -25,7 +25,11 @@ def settings_recurring_list_view(request: Request) -> HttpResponse:
     return render(
         request,
         "budget/settings/recurring_list.html",
-        {"recurring_expenses": recurring_expenses, "member": member},
+        {
+            "recurring_expenses": recurring_expenses,
+            "member": member,
+            "breadcrumbs": ["Paramètres", "Charges fixes"],
+        },
     )
 
 

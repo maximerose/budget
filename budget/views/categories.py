@@ -19,7 +19,11 @@ def settings_categories_list_view(request: Request) -> HttpResponse:
     return render(
         request,
         "budget/settings/category_list.html",
-        {"categories": categories, "member": member},
+        {
+            "categories": categories,
+            "member": member,
+            "breadcrumbs": ["Paramètres", "Catégories"],
+        },
     )
 
 

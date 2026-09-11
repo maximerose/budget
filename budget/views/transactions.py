@@ -433,9 +433,11 @@ def monthly_history_view(request: Request) -> HttpResponse:
 
     return render(
         request,
-        "budget/partials/transactions/_monthly_history_list.html",
+        "budget/transactions/history_list.html",
         {
             "monthly_transactions": monthly_transactions,
             "member": member,
+            "today": today,
+            "breadcrumbs": ["Historique des transactions"],
         },
     )

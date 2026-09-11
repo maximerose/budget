@@ -184,5 +184,6 @@ def forecast_list_view(request: Request) -> HttpResponse:
             "fix_data": fix_data,
             "savings_data": savings_data,
             "income_data": income_data,
+            "breadcrumbs": ["Prévisions budgétaires"],
         },
     )

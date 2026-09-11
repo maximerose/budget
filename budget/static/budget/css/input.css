@@ -5,6 +5,10 @@
 @source "../../../forms.py";
 
 @theme {
+  /* Polices de caractères */
+  --font-sans: "Outfit", sans-serif;
+  --font-logo: "Satisfy", cursive;
+  
   /* Palette principale */
   --color-brand: #10b981;
   --color-brand-dark: #020617;

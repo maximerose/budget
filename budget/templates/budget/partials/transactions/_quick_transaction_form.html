@@ -344,7 +344,7 @@
             document.getElementById('block-transfer').classList.toggle('hidden', type !== 'TRANSFER');
             
             if (refundHint) {
-                refundHint.style.display = type === 'EXPENSE' ? 'block' : 'none';
+                refundHint.classList.toggle('hidden', type !== 'EXPENSE');
             }
             
             document.getElementById('imputation-wrapper').style.opacity = type === 'TRANSFER' ? '0.3' : '1';

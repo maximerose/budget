@@ -8,8 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const bgColor = msg.getAttribute("data-tag") === "error" ? "#f43f5e" : "#10b981"; 
 
         Toastify({
-            text: text, duration: 2000, gravity: "bottom", position: "center",
-            style: { background: bgColor, borderRadius: "9999px", padding: "8px 16px", fontSize: "0.875rem", color: "#020617", fontWeight: "600", boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", marginBottom: "5rem" }
+            text: text, duration: 1500, gravity: "bottom", position: "center",
+            style: { background: bgColor, borderRadius: "9999px", padding: "4px 12px", fontSize: "0.75rem", color: "#020617", fontWeight: "600", boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", marginBottom: "4rem" }
         }).showToast();
     });
 

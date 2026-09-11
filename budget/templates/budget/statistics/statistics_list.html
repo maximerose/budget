@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Statistiques - Larfeuil{% endblock %}
+
+{% block content %}
+  <div class="space-y-6 mb-16 md:mb-0">
+
+    <!-- En-tête / Filtre de Période -->
+    <div class="bg-brand-card border border-brand-border p-4 sm:p-5 rounded-card shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-bold text-slate-100">Statistiques & Bilan</h1>
+        <p class="text-xs text-slate-400">Analyse de la répartition de vos flux financiers de date à date.</p>
+      </div>
+
+      <form method="get" class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-400 uppercase">De</label>
+          <select name="start_month" class="input-base text-xs py-2 px-3">
+            {% for m in available_months %}
+              <option value="{{ m|date:'Y-m' }}" {% if m == start_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-400 uppercase">À</label>
+          <select name="end_month" class="input-base text-xs py-2 px-3">
+            {% for m in available_months %}
+              <option value="{{ m|date:'Y-m' }}" {% if m == end_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <button type="submit"
+                class="bg-brand text-brand-dark px-4 py-2 rounded-xl font-bold text-xs hover:bg-action-primary-hover transition-all cursor-pointer">
+          Filtrer
+        </button>
+      </form>
+    </div>
+
+    <!-- Grand Tableau Récapitulatif -->
+    <div class="space-y-8">
+      {% for block in period_summary %}
+        <section class="bg-brand-card border border-brand-border rounded-card shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-brand-border/60 flex items-center justify-between bg-slate-900/50">
+            <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full {% if block.type_key == 'INCOME' %}bg-budget-income {% elif block.type_key == 'RECURRING' %}bg-budget-recurring {% elif block.type_key == 'VARIABLE' %}bg-budget-variable {% else %}bg-budget-savings{% endif %}">
+              </span>
+              {{ block.label }}
+            </h2>
+            <div class="text-right flex items-center gap-4">
+              <div>
+                <span class="text-[10px] text-slate-500 uppercase font-bold block">Total sur la période</span>
+                <span class="text-sm font-extrabold text-slate-100">{{ block.total_period|floatformat:"2g" }} €</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 uppercase font-bold block">Moyenne / mois</span>
+                <span class="text-sm font-extrabold text-brand">{{ block.monthly_avg|floatformat:"2g" }} €</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table défilante horizontalement si beaucoup de mois -->
+          <div class="overflow-x-auto scrollbar-hide">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500 border-b border-brand-border/40">
+                <tr>
+                  <th class="py-3 px-4 min-w-37.5">Catégorie</th>
+                  {% for m in selected_months %}
+                    <th class="py-3 px-3 text-right shrink-0">{{ m|date:'b Y'|capfirst }}</th>
+                  {% endfor %}
+                  <th class="py-3 px-4 text-right bg-slate-900/90 text-slate-200">Total</th>
+                  <th class="py-3 px-4 text-right bg-slate-900/90 text-brand">Moy.</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-brand-border/40">
+                {% for cat in block.categories %}
+                  <tr class="hover:bg-slate-900/30 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-slate-200">{{ cat.name }}</td>
+                    {% for m_item in cat.months %}
+                      <td class="py-3 px-3 text-right font-medium whitespace-nowrap {% if m_item.amount > 0 %}text-slate-200{% else %}text-slate-600{% endif %}">
+                        {% if m_item.amount > 0 %}{{ m_item.amount|floatformat:"2g" }} €{% else %}-{% endif %}
+                      </td>
+                    {% endfor %}
+                    <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-slate-100 whitespace-nowrap">
+                      {{ cat.total_period|floatformat:"2g" }} €
+                    </td>
+                    <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-brand whitespace-nowrap">
+                      {{ cat.monthly_avg|floatformat:"2g" }} €
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="{{ selected_months|length|add:3 }}" class="py-4 text-center text-slate-500 italic">
+                      Aucune transaction enregistrée pour ce type sur la période.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+
+  </div>
+{% endblock %}

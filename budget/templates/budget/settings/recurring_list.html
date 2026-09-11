@@ -1,14 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Charges Fixes | Mon Budget{% endblock %}
+{% block title %}Charges fixes - Paramètres{% endblock %}
 
 {% block content %}
   <div class="space-y-6 mb-16 md:mb-0">
-
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-      {% include "budget/components/heading.html" with level="1" title="Paramètres" subtitle="Gère ton foyer, tes comptes et tes charges." %}
-    </div>
-
     {% include "budget/partials/settings/_settings_nav.html" with active_tab="recurring" %}
 
     <div class="space-y-8">
