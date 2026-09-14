@@ -1,4 +1,5 @@
 import datetime
+import json
 from decimal import Decimal
 from urllib.request import Request
 
@@ -18,16 +19,13 @@ def statistics_view(request: Request) -> HttpResponse:
     household = request.household
     today = timezone.localdate().replace(day=1)
 
-    # 1. Première transaction historique du foyer
     min_tx_date = Transaction.objects.filter(
         bank_account__owner__household=household
     ).aggregate(m=Min("budget_month"))["m"]
 
-    # Borne minimale par défaut : le mois le plus ancien trouvé, sinon le mois courant
     start_boundary = min_tx_date.replace(day=1) if min_tx_date else today
     end_boundary = today
 
-    # 2. Bornes sélectionnées dans le formulaire
     start_str = request.GET.get("start_month")
     end_str = request.GET.get("end_month")
 
@@ -35,7 +33,7 @@ def statistics_view(request: Request) -> HttpResponse:
         start_date = (
             datetime.date.fromisoformat(f"{start_str}-01")
             if start_str
-            else start_boundary  # <--- Correction : démarre au plus ancien par défaut !
+            else start_boundary
         )
     except ValueError:
         start_date = start_boundary
@@ -47,11 +45,9 @@ def statistics_view(request: Request) -> HttpResponse:
     except ValueError:
         end_date = end_boundary
 
-    # Inversion de sécurité si start > end
     if start_date > end_date:
         start_date, end_date = end_date, start_date
 
-    # 3. Liste des mois inclus dans la période filtrée
     selected_months = []
     curr = start_date
     while curr <= end_date:
@@ -61,27 +57,69 @@ def statistics_view(request: Request) -> HttpResponse:
     nb_period_months = len(selected_months) or 1
     next_month_after_end = advance_date(end_date, 1)
 
-    # 4. Requête des transactions sur la plage sélectionnée
     range_txs = Transaction.objects.filter(
         bank_account__owner__household=household,
         budget_month__gte=start_date,
         budget_month__lt=next_month_after_end,
     )
 
-    # 5. Ventilation par type de catégorie
     category_types = [
-        (CategoryType.INCOME, "Revenus"),
-        (CategoryType.RECURRING, "Charges fixes"),
-        (CategoryType.VARIABLE, "Charges variables"),
-        (CategoryType.SAVINGS, "Épargne"),
+        (CategoryType.INCOME, "Revenus", "#10b981", "rgba(16, 185, 129, 0.1)"),
+        (CategoryType.RECURRING, "Charges fixes", "#f43f5e", "rgba(244, 63, 94, 0.1)"),
+        (
+            CategoryType.VARIABLE,
+            "Charges variables",
+            "#f59e0b",
+            "rgba(245, 158, 11, 0.1)",
+        ),
+        (CategoryType.SAVINGS, "Épargne", "#8b5cf6", "rgba(139, 92, 246, 0.1)"),
     ]
 
+    FRENCH_MONTHS = [
+        "Janv.",
+        "Fév.",
+        "Mars",
+        "Avr.",
+        "Mai",
+        "Juin",
+        "Juil.",
+        "Août",
+        "Sept.",
+        "Oct.",
+        "Nov.",
+        "Déc.",
+    ]
+    chart_labels = [f"{FRENCH_MONTHS[m.month - 1]} {m.year}" for m in selected_months]
+
+    chart_data_combined = {"labels": chart_labels, "datasets": []}
+    individual_charts = {}
     period_summary = []
 
-    for cat_type_key, cat_type_label in category_types:
+    colors_palette = [
+        "#3b82f6",
+        "#f43f5e",
+        "#f59e0b",
+        "#10b981",
+        "#8b5cf6",
+        "#14b8a6",
+        "#ec4899",
+        "#06b6d4",
+    ]
+
+    def get_net_amount(qs, expected_type):
+        inc = qs.filter(transaction_type="INCOME").aggregate(s=Sum("total_amount"))[
+            "s"
+        ] or Decimal("0.00")
+        exp = qs.filter(transaction_type="EXPENSE").aggregate(s=Sum("total_amount"))[
+            "s"
+        ] or Decimal("0.00")
+        return (inc - exp) if expected_type == "INCOME" else (exp - inc)
+
+    TOP_LIMIT = 5
+
+    for cat_type_key, cat_type_label, border_color, bg_color in category_types:
         categories_data = []
         type_txs = range_txs.filter(category__type=cat_type_key)
-
         cats = (
             type_txs.values("category__id", "category__name")
             .distinct()
@@ -89,46 +127,84 @@ def statistics_view(request: Request) -> HttpResponse:
         )
 
         type_total_period = Decimal("0.00")
+        expected_type = "INCOME" if cat_type_key == CategoryType.INCOME else "EXPENSE"
+
+        type_monthly_totals = [0.0] * len(selected_months)
 
         for c in cats:
             c_id = c["category__id"]
+            c_name = c["category__name"]
             cat_txs = type_txs.filter(category_id=c_id)
+            total_period = get_net_amount(cat_txs, expected_type)
 
-            total_period = cat_txs.aggregate(s=Sum("total_amount"))["s"] or Decimal(
-                "0.00"
-            )
-
-            # Reconstitution mois par mois & comptage des mois actifs
             monthly_breakdown = []
             active_months_count = 0
 
-            for m_date in selected_months:
-                m_amount = cat_txs.filter(
-                    budget_month__year=m_date.year,
-                    budget_month__month=m_date.month,
-                ).aggregate(s=Sum("total_amount"))["s"] or Decimal("0.00")
+            prev_month_date = start_date.replace(day=1) - datetime.timedelta(days=1)
+            prev_qs = cat_txs.filter(
+                budget_month__year=prev_month_date.year,
+                budget_month__month=prev_month_date.month,
+            )
+            prev_amount = get_net_amount(prev_qs, expected_type)
 
-                if m_amount > 0:
+            for m_idx, m_date in enumerate(selected_months):
+                curr_qs = cat_txs.filter(
+                    budget_month__year=m_date.year, budget_month__month=m_date.month
+                )
+                m_amount = get_net_amount(curr_qs, expected_type)
+
+                if m_amount != 0:
                     active_months_count += 1
 
-                monthly_breakdown.append({"date": m_date, "amount": m_amount})
+                if m_amount > prev_amount:
+                    evo = "up"
+                elif m_amount < prev_amount:
+                    evo = "down"
+                else:
+                    evo = "same"
 
-            # MOYENNE : On divise par les mois actifs (Option B).
-            # Si tu préfères diviser par le nombre total de mois du filtre (Option A),
-            # remplace `active_months_count or 1` par `nb_period_months`.
+                monthly_breakdown.append(
+                    {"date": m_date, "amount": m_amount, "evolution": evo}
+                )
+                type_monthly_totals[m_idx] += float(m_amount)
+                prev_amount = m_amount
+
             divisor = Decimal(active_months_count or 1)
-            monthly_avg = total_period / divisor
-
             type_total_period += total_period
 
             categories_data.append(
                 {
                     "id": c_id,
-                    "name": c["category__name"],
+                    "name": c_name,
                     "total_period": total_period,
-                    "monthly_avg": monthly_avg,
+                    "monthly_avg": total_period / divisor,
                     "active_months": active_months_count,
                     "months": monthly_breakdown,
+                }
+            )
+
+        # Tri des catégories pour alimenter le graphique individuel
+        sorted_cats_for_chart = sorted(
+            categories_data, key=lambda item: item["total_period"], reverse=True
+        )
+
+        cat_datasets = []
+        for i, c in enumerate(sorted_cats_for_chart):
+            cat_monthly_values = [float(m["amount"]) for m in c["months"]]
+            is_hidden_by_default = i >= TOP_LIMIT
+
+            cat_datasets.append(
+                {
+                    "label": f" {c['name']}",
+                    "data": cat_monthly_values,
+                    "borderColor": colors_palette[i % len(colors_palette)],
+                    "backgroundColor": "transparent",
+                    "pointBackgroundColor": colors_palette[i % len(colors_palette)],
+                    "tension": 0.4,
+                    "borderWidth": 2,
+                    "pointRadius": 3,
+                    "pointHitRadius": 10,
+                    "hidden": is_hidden_by_default,
                 }
             )
 
@@ -142,7 +218,26 @@ def statistics_view(request: Request) -> HttpResponse:
             }
         )
 
-    # 6. Options pour le <select> du filtre
+        # Courbe du graphique global
+        chart_data_combined["datasets"].append(
+            {
+                "label": f" {cat_type_label}",
+                "data": type_monthly_totals,
+                "borderColor": border_color,
+                "backgroundColor": bg_color,
+                "pointBackgroundColor": border_color,
+                "fill": True,
+                "tension": 0.4,
+                "pointRadius": 3,
+                "pointHitRadius": 10,
+            }
+        )
+
+        individual_charts[cat_type_key] = {
+            "labels": chart_labels,
+            "datasets": cat_datasets,
+        }
+
     available_months = []
     curr = start_boundary
     while curr <= end_boundary:
@@ -155,6 +250,8 @@ def statistics_view(request: Request) -> HttpResponse:
         "available_months": available_months,
         "selected_months": selected_months,
         "period_summary": period_summary,
+        "chart_data_combined_json": json.dumps(chart_data_combined),
+        "individual_charts_json": json.dumps(individual_charts),
         "breadcrumbs": ["Statistiques"],
     }
 

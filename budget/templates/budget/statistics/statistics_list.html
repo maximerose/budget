@@ -4,105 +4,281 @@
 {% block title %}Statistiques{% endblock %}
 
 {% block content %}
-  <div class="space-y-6 mb-16 md:mb-0">
+  <!-- CDN Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- En-tête / Filtre de Période -->
-    <div class="bg-brand-card border border-brand-border p-4 sm:p-5 rounded-card shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <h1 class="text-xl font-bold text-slate-100">Statistiques & Bilan</h1>
-        <p class="text-xs text-slate-400">Analyse de la répartition de vos flux financiers de date à date.</p>
+  <!-- En-tête / Filtre de Période -->
+  <div class="bg-brand-card border border-brand-border p-4 sm:p-5 rounded-card shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-slate-100">Statistiques & Bilan</h1>
+      <p class="text-xs text-slate-400">Analyse de la répartition de vos flux financiers de date à date.</p>
+    </div>
+
+    <form method="get" class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-400 uppercase">De</label>
+        <select name="start_month" class="input-base text-xs py-2 px-3">
+          {% for m in available_months %}
+            <option value="{{ m|date:'Y-m' }}" {% if m == start_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
+          {% endfor %}
+        </select>
       </div>
 
-      <form method="get" class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-2">
-          <label class="text-xs font-semibold text-slate-400 uppercase">De</label>
-          <select name="start_month" class="input-base text-xs py-2 px-3">
-            {% for m in available_months %}
-              <option value="{{ m|date:'Y-m' }}" {% if m == start_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
-            {% endfor %}
-          </select>
-        </div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-400 uppercase">À</label>
+        <select name="end_month" class="input-base text-xs py-2 px-3">
+          {% for m in available_months %}
+            <option value="{{ m|date:'Y-m' }}" {% if m == end_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
+          {% endfor %}
+        </select>
+      </div>
 
-        <div class="flex items-center gap-2">
-          <label class="text-xs font-semibold text-slate-400 uppercase">À</label>
-          <select name="end_month" class="input-base text-xs py-2 px-3">
-            {% for m in available_months %}
-              <option value="{{ m|date:'Y-m' }}" {% if m == end_date %}selected{% endif %}>{{ m|date:'F Y'|capfirst }}</option>
-            {% endfor %}
-          </select>
-        </div>
+      <button type="submit"
+              class="bg-brand text-brand-dark px-4 py-2 rounded-xl font-bold text-xs hover:bg-action-primary-hover transition-all cursor-pointer">
+        Filtrer
+      </button>
+    </form>
+  </div>
 
-        <button type="submit"
-                class="bg-brand text-brand-dark px-4 py-2 rounded-xl font-bold text-xs hover:bg-action-primary-hover transition-all cursor-pointer">
-          Filtrer
-        </button>
-      </form>
+  <!-- Graphique d'Évolution Globale (Les 4 grandes masses) -->
+  <section class="bg-brand-card border border-brand-border rounded-card shadow-sm p-4 sm:p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+        {% include "budget/components/icon.html" with name="chart-bar" class="w-5 h-5 text-brand" %}
+        Évolution globale
+      </h2>
     </div>
+    <div class="relative h-72 w-full">
+      <canvas id="evolutionChart"></canvas>
+    </div>
+  </section>
 
-    <!-- Grand Tableau Récapitulatif -->
-    <div class="space-y-8">
-      {% for block in period_summary %}
-        <section class="bg-brand-card border border-brand-border rounded-card shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-brand-border/60 flex items-center justify-between bg-slate-900/50">
-            <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full {% if block.type_key == 'INCOME' %}bg-budget-income {% elif block.type_key == 'RECURRING' %}bg-budget-recurring {% elif block.type_key == 'VARIABLE' %}bg-budget-variable {% else %}bg-budget-savings{% endif %}">
-              </span>
-              {{ block.label }}
-            </h2>
-            <div class="text-right flex items-center gap-4">
-              <div>
-                <span class="text-[10px] text-slate-500 uppercase font-bold block">Total sur la période</span>
-                <span class="text-sm font-extrabold text-slate-100">{{ block.total_period|floatformat:"2g" }} €</span>
-              </div>
-              <div>
-                <span class="text-[10px] text-slate-500 uppercase font-bold block">Moyenne / mois</span>
-                <span class="text-sm font-extrabold text-brand">{{ block.monthly_avg|floatformat:"2g" }} €</span>
-              </div>
+  <!-- Sections détaillées par Type -->
+  <div class="space-y-8">
+    {% for block in period_summary %}
+      <section class="bg-brand-card border border-brand-border rounded-card shadow-sm overflow-hidden">
+
+        <!-- Titre et Totaux du bloc -->
+        <div class="p-4 border-b border-brand-border/60 flex items-center justify-between bg-slate-900/50">
+          <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full {% if block.type_key == 'INCOME' %}bg-budget-income {% elif block.type_key == 'RECURRING' %}bg-budget-recurring {% elif block.type_key == 'VARIABLE' %}bg-budget-variable {% else %}bg-budget-savings{% endif %}">
+            </span>
+            {{ block.label }}
+          </h2>
+          <div class="text-right flex items-center gap-4">
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-bold block">Total période</span>
+              <span class="text-sm font-extrabold text-slate-100">{{ block.total_period|floatformat:"2g" }} €</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-bold block">Moy. / mois</span>
+              <span class="text-sm font-extrabold text-brand">{{ block.monthly_avg|floatformat:"2g" }} €</span>
             </div>
           </div>
+        </div>
 
-          <!-- Table défilante horizontalement si beaucoup de mois -->
-          <div class="overflow-x-auto scrollbar-hide">
-            <table class="w-full text-left text-xs text-slate-300">
-              <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500 border-b border-brand-border/40">
-                <tr>
-                  <th class="py-3 px-4 min-w-37.5">Catégorie</th>
-                  {% for m in selected_months %}
-                    <th class="py-3 px-3 text-right shrink-0">{{ m|date:'b Y'|capfirst }}</th>
-                  {% endfor %}
-                  <th class="py-3 px-4 text-right bg-slate-900/90 text-slate-200">Total</th>
-                  <th class="py-3 px-4 text-right bg-slate-900/90 text-brand">Moy.</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-brand-border/40">
-                {% for cat in block.categories %}
-                  <tr class="hover:bg-slate-900/30 transition-colors">
-                    <td class="py-3 px-4 font-semibold text-slate-200">{{ cat.name }}</td>
-                    {% for m_item in cat.months %}
-                      <td class="py-3 px-3 text-right font-medium whitespace-nowrap {% if m_item.amount > 0 %}text-slate-200{% else %}text-slate-600{% endif %}">
-                        {% if m_item.amount > 0 %}{{ m_item.amount|floatformat:"2g" }} €{% else %}-{% endif %}
-                      </td>
-                    {% endfor %}
-                    <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-slate-100 whitespace-nowrap">
-                      {{ cat.total_period|floatformat:"2g" }} €
-                    </td>
-                    <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-brand whitespace-nowrap">
-                      {{ cat.monthly_avg|floatformat:"2g" }} €
-                    </td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="{{ selected_months|length|add:3 }}" class="py-4 text-center text-slate-500 italic">
-                      Aucune transaction enregistrée pour ce type sur la période.
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+        <!-- Contrôles du Graphique (Focus / Filtre par Catégorie) -->
+        <div class="p-3 px-4 bg-slate-900/30 border-b border-brand-border/40 flex items-center justify-between gap-3 flex-wrap">
+          <span class="text-xs font-semibold text-slate-400">Vue du graphique :</span>
+          <div class="flex items-center gap-2">
+            <select id="select-focus-{{ block.type_key }}"
+                    onchange="filterCategoryGraph('{{ block.type_key }}', this.value)"
+                    class="input-base text-xs py-1 px-2.5 bg-slate-800 border-slate-700 text-slate-200">
+              <option value="all">Toutes les catégories (Top 5)</option>
+              {% for cat in block.categories %}
+                <option value="{{ cat.name }}">Focus : {{ cat.name }}</option>
+              {% endfor %}
+            </select>
           </div>
-        </section>
-      {% endfor %}
-    </div>
+        </div>
 
+        <!-- Graphique Détaillé du Bloc -->
+        <div class="p-4 border-b border-brand-border/40 bg-brand-card">
+          <div class="relative h-48 w-full">
+            <canvas id="chart-{{ block.type_key }}"></canvas>
+          </div>
+        </div>
+
+        <!-- Table avec 1ère colonne "Sticky" -->
+        <div class="overflow-x-auto scrollbar-hide relative">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500 border-b border-brand-border/40">
+              <tr>
+                <th class="py-3 px-4 min-w-48 sticky left-0 z-20 bg-slate-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)] border-r border-brand-border/40">Catégorie</th>
+                {% for m in selected_months %}
+                  <th class="py-3 px-3 text-right shrink-0">{{ m|date:'b Y'|capfirst }}</th>
+                {% endfor %}
+                <th class="py-3 px-4 text-right bg-slate-900/90 text-slate-200 border-l border-brand-border/40">Total</th>
+                <th class="py-3 px-4 text-right bg-slate-900/90 text-brand">Moy.</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-brand-border/40">
+              {% for cat in block.categories %}
+                <tr class="hover:bg-slate-800/30 transition-colors group">
+                  <td class="py-3 px-4 font-semibold text-slate-200 sticky left-0 z-10 bg-brand-card group-hover:bg-slate-800 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)] border-r border-brand-border/40 transition-colors">
+                    {{ cat.name }}
+                  </td>
+                  {% for m_item in cat.months %}
+                    <td class="py-3 px-3 text-right font-medium whitespace-nowrap {% if m_item.amount == 0 %} text-slate-600 {% elif m_item.evolution == 'up' %} {% if block.type_key == 'INCOME' or block.type_key == 'SAVINGS' %} text-budget-income {% else %} text-action-danger {% endif %} {% elif m_item.evolution == 'down' %} {% if block.type_key == 'INCOME' or block.type_key == 'SAVINGS' %} text-action-danger {% else %} text-budget-income {% endif %} {% else %} text-slate-200 {% endif %}">
+
+                      {% if m_item.amount != 0 %}
+                        {{ m_item.amount|floatformat:"2g" }} €
+                        {% if m_item.evolution == 'up' %}
+                          <svg class="w-3 h-3 inline mb-0.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25">
+                            </path>
+                          </svg>
+                        {% elif m_item.evolution == 'down' %}
+                          <svg class="w-3 h-3 inline mb-0.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25">
+                            </path>
+                          </svg>
+                        {% endif %}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                  <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-slate-100 whitespace-nowrap border-l border-brand-border/40">
+                    {{ cat.total_period|floatformat:"2g" }} €
+                  </td>
+                  <td class="py-3 px-4 text-right font-bold bg-slate-900/40 text-brand whitespace-nowrap">
+                    {{ cat.monthly_avg|floatformat:"2g" }} €
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="{{ selected_months|length|add:3 }}" class="py-4 text-center text-slate-500 italic">
+                    Aucune transaction enregistrée pour ce type sur la période.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endfor %}
   </div>
+
+  <!-- Initialisation Chart.js -->
+  <script>
+    // Stockage global des instances de graphiques
+    window.chartInstances = {};
+
+    // Formateur de devise en Euros
+    const formatCurrency = function(value) {
+        if (value === null || value === undefined) return '0,00 €';
+        return new Intl.NumberFormat('fr-FR', {
+            style: 'currency',
+            currency: 'EUR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(value);
+    };
+
+    function initCharts() {
+        const combinedData = JSON.parse('{{ chart_data_combined_json|escapejs }}');
+        const individualData = JSON.parse('{{ individual_charts_json|escapejs }}');
+        
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { 
+                    position: 'bottom', 
+                    labels: { 
+                      color: '#cbd5e1', 
+                      usePointStyle: true, 
+                      pointStyle: 'circle', 
+                      boxWidth: 6,
+                      boxHeight: 6, 
+                      padding: 15
+                    } 
+                },
+                tooltip: { 
+                    backgroundColor: '#0f172a', 
+                    titleColor: '#f1f5f9', 
+                    bodyColor: '#cbd5e1', 
+                    borderColor: '#1e293b', 
+                    borderWidth: 1, 
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label ? context.dataset.label.trim() : '';
+                            let value = context.parsed.y;
+                            return label + ' : ' + formatCurrency(value);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: '#1e293b', drawBorder: false }, ticks: { color: '#64748b' } },
+                y: { 
+                    type: 'linear',
+                    grid: { color: '#1e293b', drawBorder: false }, 
+                    ticks: { color: '#64748b', callback: function(value) { return value + ' €'; } } 
+                }
+            }
+        };
+
+        // Graphique Global
+        const canvasGlobal = document.getElementById('evolutionChart');
+        if (canvasGlobal) {
+            if (window.myEvolutionChart) window.myEvolutionChart.destroy();
+            window.myEvolutionChart = new Chart(canvasGlobal.getContext('2d'), {
+                type: 'line',
+                data: combinedData,
+                options: commonOptions
+            });
+        }
+
+        // Graphiques Individuels
+        Object.keys(individualData).forEach(function(key) {
+            const canvasIndiv = document.getElementById('chart-' + key);
+            if (canvasIndiv) {
+                if (window.chartInstances[key]) window.chartInstances[key].destroy();
+                
+                // Deep clone des options avec conservation explicite des callbacks JS
+                let optionsIndiv = JSON.parse(JSON.stringify(commonOptions));
+                optionsIndiv.plugins.legend.display = true;
+                optionsIndiv.plugins.tooltip.callbacks = {
+                    label: function(context) {
+                        let label = context.dataset.label ? context.dataset.label.trim() : '';
+                        let value = context.parsed.y;
+                        return label + ' : ' + formatCurrency(value);
+                    }
+                };
+                
+                window.chartInstances[key] = new Chart(canvasIndiv.getContext('2d'), {
+                    type: 'line',
+                    data: individualData[key],
+                    options: optionsIndiv
+                });
+            }
+        });
+    }
+
+    // Fonction de filtrage dynamique au changement du select Focus
+    function filterCategoryGraph(typeKey, targetCategoryName) {
+        const chart = window.chartInstances[typeKey];
+        if (!chart) return;
+
+        chart.data.datasets.forEach(function(dataset, index) {
+            const cleanLabel = dataset.label.trim();
+            
+            if (targetCategoryName === 'all') {
+                chart.setDatasetVisibility(index, index < 5);
+            } else {
+                const isSelected = cleanLabel === targetCategoryName.trim();
+                chart.setDatasetVisibility(index, isSelected);
+            }
+        });
+
+        chart.update();
+    }
+
+    document.addEventListener("DOMContentLoaded", initCharts);
+    document.body.addEventListener('htmx:afterSettle', initCharts);
+  </script>
 {% endblock %}

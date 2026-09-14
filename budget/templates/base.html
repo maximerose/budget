@@ -101,7 +101,7 @@
     {% endif %}
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-24 md:pb-12{% else %}py-6{% endif %}">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-24 md:pb-12{% else %}py-6{% endif %}">
       {% block content %}{% endblock %}
     </main>
 
