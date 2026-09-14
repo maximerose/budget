@@ -1,18 +1,21 @@
-<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-brand-card/95 backdrop-blur-md border-t border-brand-border z-30 pb-safe">
-  <div class="grid grid-cols-6 items-center px-1 py-2">
+{% with menu_length=main_menu|length %}
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-brand-card/95 backdrop-blur-md border-t border-brand-border z-30 pb-safe">
 
-    {% for item in main_menu %}
-      {% if item.is_button %}
-        <!-- APPEL DU NOUVEAU COMPOSANT UNIQUE (MOBILE) -->
-        {% include "budget/components/quick_add_button.html" %}
-      {% elif not item.is_spacer %}
-        <a href="{% url item.url_name %}"
-           class="flex flex-col items-center justify-center gap-1 w-full py-1 {% if item.is_active %}text-brand font-bold{% else %}text-slate-500 hover:text-slate-300{% endif %} transition-colors">
-          {% include "budget/components/icon.html" with name=item.icon class="w-5 h-5" %}
-          <span class="text-[9px] font-medium truncate max-w-full px-0.5">{{ item.label }}</span>
-        </a>
-      {% endif %}
-    {% endfor %}
+    <!-- Sélection dynamique de la classe Tailwind -->
+    <div class="grid items-center px-1 py-2 {% if menu_length == 4 %}grid-cols-4{% elif menu_length == 5 %}grid-cols-5{% elif menu_length == 6 %}grid-cols-6{% else %}grid-cols-5{% endif %}">
 
-  </div>
-</nav>
+      {% for item in main_menu %}
+        {% if item.is_button %}
+          {% include "budget/components/quick_add_button.html" %}
+        {% elif not item.is_spacer %}
+          <a href="{% url item.url_name %}"
+             class="flex flex-col items-center justify-center gap-1 w-full py-1 {% if item.is_active %}text-brand font-bold{% else %}text-slate-500 hover:text-slate-300{% endif %} transition-colors">
+            {% include "budget/components/icon.html" with name=item.icon class="w-5 h-5" %}
+            <span class="text-[9px] font-medium truncate max-w-full px-0.5">{{ item.label }}</span>
+          </a>
+        {% endif %}
+      {% endfor %}
+
+    </div>
+  </nav>
+{% endwith %}

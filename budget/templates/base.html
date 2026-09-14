@@ -83,6 +83,13 @@
                 {% endif %}
               {% endfor %}
             </nav>
+
+            <!-- Bouton Paramètres (Visible sur Mobile ET Desktop) -->
+            <a href="{% url 'settings_accounts' %}"
+               title="Paramètres"
+               class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 border border-brand-border text-slate-400 hover:text-brand hover:border-brand/50 hover:bg-brand/10 transition-all cursor-pointer">
+              {% include "budget/components/icon.html" with name="cog" class="w-5 h-5" %}
+            </a>
           </div>
         </div>
       </header>

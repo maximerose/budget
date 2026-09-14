@@ -78,12 +78,6 @@ def global_budget_context(request: Request) -> dict[str, Any]:
             "is_active": current_url_name == "statistics",
             "icon": "chart-pie",
         },
-        {
-            "label": "Paramètres",
-            "url_name": "settings_accounts",
-            "is_active": current_url_name.startswith("settings_"),
-            "icon": "cog",
-        },
     ]
 
     return {
