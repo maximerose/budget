@@ -9,3 +9,23 @@ services:
     volumes:
       - .:/app
     user: "${UID}:${GID}"
+    depends_on:
+      - db
+    environment:
+      # On passe l'URL de connexion à Django
+      - DATABASE_URL=postgres://larfeuil_user:larfeuil_pass@db:5432/larfeuil_db
+
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_DB=larfeuil_db
+      - POSTGRES_USER=larfeuil_user
+      - POSTGRES_PASSWORD=larfeuil_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+volumes:
+  postgres_data:
