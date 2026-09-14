@@ -5,13 +5,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Application de gestion de budget personnel et prévisionnel." />
-    <title>{% block title %}{% endblock %} | Larfeuille</title>
+    <title>{% block title %}{% endblock %} | Larfeuil</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
           rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Satisfy&display=swap" rel="stylesheet" />
+
+    <link rel="apple-touch-icon"
+          sizes="180x180"
+          href="{% static 'budget/img/larfeuil_logo/apple-touch-icon.png' %}?v=2" />
+    <link rel="icon"
+          type="image/png"
+          sizes="96x96"
+          href="{% static 'budget/img/larfeuil_logo/favicon-96x96.png' %}?v=2" />
+    <link rel="manifest" href="{% static 'budget/img/larfeuil_logo/site.webmanifest' %}?v=2" />
+    <meta name="theme-color" content="#020617" />
 
     <link rel="stylesheet" href="{% static 'budget/css/output.css' %}" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -43,21 +53,9 @@
           <div class="flex items-center justify-between h-16 gap-2">
             <div class="flex items-center gap-2 shrink-0">
               <a href="{% url 'dashboard' %}" class="flex items-center gap-2.5 transition-all group">
-                <div class="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-slate-700 transition-colors border border-slate-700">
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <!-- Les 3 tiges -->
-                    <path d="M6 3v18M12 3v18M18 3v18" stroke="currentColor" stroke-width="1.5" class="text-slate-600" stroke-linecap="round" />
-                    <!-- Les billes formant le L -->
-                    <g class="text-brand" fill="currentColor">
-                    <circle cx="6" cy="6" r="2.5" class="group-hover:-translate-y-0.5 transition-transform" />
-                    <circle cx="6" cy="12" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-75" />
-                    <circle cx="6" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
-                    <circle cx="12" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
-                    <circle cx="18" cy="18" r="2.5" class="group-hover:-translate-y-0.5 transition-transform delay-150" />
-                    </g>
-                  </svg>
-                </div>
-
+                <img src="{% static 'budget/img/larfeuil_logo/larfeuil_logo.svg' %}"
+                     alt="Logo Larfeuil"
+                     class="w-8 h-8 group-hover:scale-105 transition-transform" />
                 <div class="flex items-center gap-2 truncate tracking-tight overflow-visible">
                   <!-- Logo en Satisfy -->
                   <span class="font-logo text-2xl text-slate-100 group-hover:text-brand transition-colors pl-1 pb-1"

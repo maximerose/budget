@@ -5,11 +5,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const messages = document.querySelectorAll("#django-messages > div");
     messages.forEach((msg) => {
         const text = msg.getAttribute("data-message");
-        const bgColor = msg.getAttribute("data-tag") === "error" ? "#f43f5e" : "#10b981"; 
+        const isError = msg.getAttribute("data-tag") === "error";
+        
+        // 85% d'opacité avec format RGBA
+        const bgColor = isError ? "rgba(244, 63, 94, 0.85)" : "rgba(16, 185, 129, 0.85)";
 
         Toastify({
-            text: text, duration: 1500, gravity: "bottom", position: "center",
-            style: { background: bgColor, borderRadius: "9999px", padding: "4px 12px", fontSize: "0.75rem", color: "#020617", fontWeight: "600", boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", marginBottom: "4rem" }
+            text: text, 
+            duration: 1500, 
+            gravity: "bottom", 
+            position: "center",
+            style: { 
+                background: bgColor, 
+                backdropFilter: "blur(8px)", // Effet verre dépoli !
+                WebkitBackdropFilter: "blur(8px)", // Pour Safari
+                borderRadius: "9999px", 
+                padding: "4px 12px", 
+                fontSize: "0.75rem", 
+                color: "#020617", 
+                fontWeight: "600", 
+                boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", 
+                marginBottom: "4rem" 
+            }
         }).showToast();
     });
 
