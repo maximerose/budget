@@ -139,7 +139,8 @@ function initQuickTransactionForm() {
     if (categorySelect) categorySelect.addEventListener('change', updateTrVisibility);
     if (sourceSelect) sourceSelect.addEventListener('change', window.updateTransferAccounts);
     if (destSelect) destSelect.addEventListener('change', window.updateTransferAccounts);
-
+    if (trAccountSelect) trAccountSelect.addEventListener('change', updateTrMax);
+    
     if (displayAmountInput) {
         displayAmountInput.addEventListener('input', () => {
             autoResizeAmount();

@@ -60,7 +60,7 @@
     <!-- 3. Blocs de champs dynamiques -->
     <div id="block-expense">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id %}
+            {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id allow_create=True create_type="category" %}
             {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id %}
 
             <!-- Section Tickets Resto -->
@@ -79,16 +79,7 @@
                     <div id="meal-voucher-details"
                          class="hidden pl-7 pt-3 mt-1 space-y-3 border-l-2 border-brand-border/60 ml-2">
                         <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Carte utilisée</label>
-                            <select id="meal_voucher_account_id"
-                                    name="meal_voucher_account_id"
-                                    class="input-base px-3 py-1.5 text-sm"
-                                    onchange="updateTrMax()">
-                                {% for tr in tr_accounts_info %}
-                                    <option value="{{ tr.id }}"
-                                            {% if transaction.meal_voucher_bank_account_id|stringformat:"s" == tr.id %}selected{% endif %}>{{ tr.name }}</option>
-                                {% endfor %}
-                            </select>
+                            {% include "budget/components/select.html" with label="Carte utilisée" name="meal_voucher_account_id" options=tr_accounts_info selected=transaction.meal_voucher_bank_account_id %}
                         </div>
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center justify-between">
@@ -115,7 +106,7 @@
 
         <div id="block-income" class="hidden">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id %}
+                {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id allow_create=True create_type="category" %}
                 {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
             </div>
         </div>
@@ -150,7 +141,7 @@
         </div>
 
         <div class="p-3 bg-slate-900/50 rounded-xl border border-brand-border">
-            {% include "budget/components/select.html" with label="Catégorie (Optionnelle : pour remboursements)" name="transfer_category" options=categories_expense placeholder="Aucune (Transfert classique)" %}
+            {% include "budget/components/select.html" with label="Catégorie (Optionnelle : pour remboursements)" name="transfer_category" options=categories_expense placeholder="Aucune (Transfert classique)" allow_create=True create_type="category" %}
             <div class="flex items-start gap-2 text-[10px] text-slate-500 mt-2 leading-tight">
                 {% include "budget/components/icon.html" with name="light-bulb" class="w-4 h-4 shrink-0" %}
                 <span>Si vous sélectionnez une catégorie, cela créera automatiquement deux dépenses inversées pour équilibrer vos statistiques. Idéal quand un proche vous rembourse sa part !</span>

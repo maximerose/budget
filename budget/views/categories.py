@@ -87,7 +87,7 @@ def settings_category_delete_view(request: Request, category_id: str) -> HttpRes
         category.is_active = False
         category.save(update_fields=["is_active"])
 
-        messages.success("Catégorie supprimée")
+        messages.success(request, "Catégorie supprimée")
 
         response = HttpResponse("")
         response["HX-Refresh"] = "true"

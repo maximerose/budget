@@ -57,6 +57,7 @@ class HouseholdInvitationTestCase(TestCase):
 
         data = {
             "username": "laurie_new",
+            "display_name": "Laurie",
             "email": "laurie@budget.local",
             "password": "SuperPassword123!",
             "password_confirm": "SuperPassword123!",

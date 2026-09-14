@@ -8,6 +8,7 @@ from budget.views.accounts import (
     settings_account_form_view,
     settings_accounts_list_view,
 )
+from budget.views.api import api_create_element_view
 from budget.views.auth import join_household_view, register_view
 from budget.views.categories import (
     settings_categories_list_view,
@@ -203,4 +204,6 @@ urlpatterns = [
         settings_generate_invite,
         name="settings_generate_invite",
     ),
+    # API TomSelect
+    path("api/create/", api_create_element_view, name="api_create_element"),
 ]

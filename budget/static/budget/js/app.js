@@ -133,3 +133,68 @@ document.body.addEventListener('htmx:sendError', function(event) {
 document.body.addEventListener('htmx:responseError', function(event) {
     showToast("Une erreur est survenue sur le serveur. Réessayez plus tard.", true);
 });
+
+// =========================================================================
+// 7. INITIALISATION TOMSELECT (Sélecteurs dynamiques)
+// =========================================================================
+function initTomSelects() {
+    document.querySelectorAll('select[data-tomselect="true"]').forEach((el) => {
+        if (el.tomselect) return; // Évite la double initialisation
+
+        const allowCreate = el.hasAttribute('data-api-create-url');
+        const createUrl = el.getAttribute('data-api-create-url');
+        const createType = el.getAttribute('data-create-type');
+        
+        const hxHeaders = document.body.getAttribute('hx-headers');
+        const csrfToken = hxHeaders ? JSON.parse(hxHeaders)['X-CSRFToken'] : '';
+
+        let config = {
+            create: false,
+            allowEmptyOption: true, 
+            onDropdownClose: function() {
+                this.blur();
+            },
+            render: {
+                no_results: function(data, escape) {
+                    return '<div class="no-results p-2 text-sm text-slate-500">Aucun résultat pour "' + escape(data.input) + '"</div>';
+                }
+            }
+        };
+
+        if (allowCreate && createUrl && createType) {
+            config.create = function(input, callback) {
+                fetch(createUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ type: createType, value: input })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.id) {
+                        showToast(`"${data.text}" créé avec succès !`, false);
+                        callback({ value: data.id, text: data.text });
+                    } else {
+                        showToast(data.error || "Erreur lors de la création", true);
+                        callback(false);
+                    }
+                })
+                .catch(() => {
+                    showToast("Erreur réseau.", true);
+                    callback(false);
+                });
+            };
+            
+            config.render.option_create = function(data, escape) {
+                return '<div class="create p-2 text-sm font-semibold cursor-pointer text-slate-300">Ajouter <strong class="text-brand">"' + escape(data.input) + '"</strong></div>';
+            };
+        }
+
+        new TomSelect(el, config);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", initTomSelects);
+document.body.addEventListener('htmx:afterSettle', initTomSelects);

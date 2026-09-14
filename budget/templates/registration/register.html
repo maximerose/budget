@@ -61,7 +61,7 @@
           // Remplace les espaces par des tirets et met en minuscules
           val = val.replace(/\s+/g, "-").toLowerCase();
           // Supprime tous les caractères non autorisés
-          val = val.replace(/[^a-z0-9-]/g, "");
+          val = val.replace(/[^a-z0-9-_]/g, "");
           e.target.value = val;
         });
       }

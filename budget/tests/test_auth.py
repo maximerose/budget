@@ -22,6 +22,7 @@ class AuthenticationTestCase(TestCase):
         url = reverse("register")
         data = {
             "username": "nouveau_testeur",
+            "display_name": "Nouveau Testeur",
             "email": "testeur@budget.local",
             "password": "SuperPassword123!",
             "password_confirm": "SuperPassword123!",
@@ -35,7 +36,7 @@ class AuthenticationTestCase(TestCase):
 
         self.assertTrue(HouseholdMember.objects.filter(user=new_user).exists())
         new_member = HouseholdMember.objects.get(user=new_user)
-        self.assertEqual(new_member.name, "nouveau_testeur")
+        self.assertEqual(new_member.name, "Nouveau Testeur")
         self.assertIsNotNone(new_member.household)
 
     def test_register_password_mismatch(self) -> None:

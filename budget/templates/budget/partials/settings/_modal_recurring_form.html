@@ -26,7 +26,7 @@
   <!-- Catégorie et Visibilité -->
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
-      {% include "budget/components/select.html" with label="Catégorie (Optionnelle)" name="category" options=form.fields.category.queryset selected=form.category.value placeholder="Aucune catégorie" %}
+      {% include "budget/components/select.html" with label="Catégorie (Optionnelle)" name="category" options=form.fields.category.queryset selected=form.category.value placeholder="Aucune catégorie" allow_create=True create_type="category" %}
       {% if form.category.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.category.errors.0 }}</p>{% endif %}
     </div>
     <div>
@@ -37,19 +37,7 @@
 
   <!-- Compte par défaut -->
   <div>
-    <div class="space-y-1">
-      <label for="default_bank_account"
-             class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Compte prélevé par défaut</label>
-      <select id="default_bank_account" name="default_bank_account" class="input-base px-3 py-2.5" required>
-        <option value="" disabled {% if not form.default_bank_account.value %}selected{% endif %}>Sélectionnez un compte</option>
-        {% for acc in form.fields.default_bank_account.queryset %}
-          <option value="{{ acc.id }}"
-                  {% if acc.id|slugify == form.default_bank_account.value|slugify %}selected{% endif %}>
-            {{ acc.name }} ({{ acc.owner.name }})
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+    {% include "budget/components/select.html" with label="Compte prélevé par défaut" name="default_bank_account" options=form.fields.default_bank_account.queryset selected=form.default_bank_account.value placeholder="Sélectionnez un compte" required=True %}
     {% if form.default_bank_account.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.default_bank_account.errors.0 }}</p>{% endif %}
   </div>
 
@@ -88,7 +76,7 @@
 
 <!-- Script pour basculer entre Jour et Date Complète -->
 <script>
-  (function() {
+  (() => {
     const freqInput = document.querySelector('input[name="frequency_months"]');
     const dateInput = document.querySelector('input[name="usual_due_day"]');
     const dayWrapper = document.getElementById('day-wrapper');

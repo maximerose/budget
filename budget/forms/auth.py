@@ -37,7 +37,7 @@ class RegisterForm(forms.ModelForm):
     def clean_username(self):
         username = self.cleaned_data.get("username", "")
         username = username.strip().lower()
-        if not re.match(r"^[a-z0-9-]+$", username):
+        if not re.match(r"^[a-z0-9-_]+$", username):
             raise forms.ValidationError(
                 "Le pseudo ne doit contenir que des lettres minuscules, des chiffres et des tirets."
             )

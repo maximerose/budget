@@ -166,3 +166,81 @@
 .htmx-request.htmx-hide {
   display: none !important;
 }
+
+/* ========================================================================= */
+/* OVERRIDES TOMSELECT (Thème Sombre Larfeuil)                               */
+/* ========================================================================= */
+/* 1. Le conteneur global */
+.ts-wrapper.input-base {
+  padding: 0 !important;
+  background: #020617 !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 0.75rem !important;
+}
+.ts-wrapper.input-base.focus {
+  border-color: #10b981 !important;
+}
+
+/* 2. La zone de saisie intérieure */
+.ts-wrapper .ts-control {
+  background: transparent !important;
+  border: none !important;
+  padding: 0.625rem 1rem !important;
+  box-shadow: none !important;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+/* 3. La couleur du texte sélectionné ET tapé */
+.ts-wrapper .ts-control .item,
+.ts-wrapper .ts-control > input {
+  color: #f1f5f9 !important;
+  font-size: 0.875rem !important;
+}
+.ts-wrapper .ts-control > input::placeholder {
+  color: #475569 !important;
+}
+
+/* 4. Le menu déroulant */
+.ts-dropdown {
+  background: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.3) !important;
+  margin-top: 4px !important;
+  z-index: 50 !important;
+}
+
+/* 5. Les options du menu */
+.ts-dropdown .option,
+.ts-dropdown .create,
+.ts-dropdown .no-results {
+  padding: 8px 12px !important;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #f1f5f9 !important;
+}
+.ts-dropdown .option:hover,
+.ts-dropdown .active {
+  background-color: #1e293b !important;
+  color: #10b981 !important;
+}
+.ts-dropdown .create:hover {
+  background-color: #10b981 !important;
+  color: #020617 !important;
+}
+
+/* 6. L'icône de la petite flèche */
+.ts-wrapper.single .ts-control:after {
+  border-color: #475569 transparent transparent transparent !important;
+}
+
+/* 7. Correction UX : masquer la valeur quand on recherche */
+.ts-wrapper.single.input-active .ts-control .item {
+  display: none !important;
+}
+.ts-wrapper.single.input-active .ts-control > input {
+  width: 100% !important;
+  flex: 1 1 auto;
+}

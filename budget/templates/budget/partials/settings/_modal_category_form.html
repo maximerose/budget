@@ -25,18 +25,7 @@
 
   <!-- Compte par défaut -->
   <div>
-    <div class="space-y-1">
-      <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Compte par défaut (Optionnel)</label>
-      <select name="default_bank_account" class="input-base px-3 py-2.5">
-        <option value="">Aucun compte par défaut</option>
-        {% for acc in form.fields.default_bank_account.queryset %}
-          <option value="{{ acc.id }}"
-                  {% if acc.id|slugify == form.default_bank_account.value|slugify %}selected{% endif %}>
-            {{ acc.name }} ({{ acc.owner.name }})
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+    {% include "budget/components/select.html" with label="Compte par défaut (Optionnel)" name="default_bank_account" options=form.fields.default_bank_account.queryset selected=form.default_bank_account.value placeholder="Aucun compte par défaut" %}
     {% if form.default_bank_account.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.default_bank_account.errors.0 }}</p>{% endif %}
   </div>
 
