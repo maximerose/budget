@@ -26,7 +26,8 @@
     </div>
 
     <div>
-      {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" autocomplete="new-password" required=True %}
+      {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" autocomplete="new-password" passwordrules="minlength: 8; required: upper; required: lower; required: digit; required: special;" required=True %}
+      {% include "budget/components/password_strength.html" with target_id="password" %}
       {% if form.password.errors %}<p class="text-[11px] text-action-danger mt-1">{{ form.password.errors.0 }}</p>{% endif %}
     </div>
 

@@ -73,6 +73,34 @@ class AuthenticationTestCase(TestCase):
             response.context["form"], "email", "Saisissez une adresse e-mail valide."
         )
 
+    def test_register_duplicate_email_raises_error(self):
+        """Vérifie qu'on ne peut pas créer deux comptes avec la même adresse mail."""
+        from budget.forms import RegisterForm
+
+        # 1. Création explicite d'un utilisateur existant
+        existing_email = "duplicate@larfeuil.app"
+        User.objects.create_user(
+            username="existing_user",
+            email=existing_email,
+            password="Password123!",
+        )
+
+        # 2. Tentative d'inscription avec la même adresse mail
+        form_data = {
+            "username": "new_unique_user",
+            "email": existing_email,
+            "password": "ComplexPassword123!",
+            "password_confirm": "ComplexPassword123!",
+            "display_name": "New User",
+        }
+        form = RegisterForm(data=form_data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+        self.assertEqual(
+            form.errors["email"], ["Un compte existe déjà avec cette adresse e-mail."]
+        )
+
     def test_register_duplicate_username(self) -> None:
         User.objects.create_user(username="existant", password="password123")
         url = reverse("register")

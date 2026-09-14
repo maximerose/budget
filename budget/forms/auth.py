@@ -3,6 +3,7 @@ from typing import ClassVar
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import SetPasswordForm
 
 from budget.models.account import HouseholdInvitation
 
@@ -47,16 +48,46 @@ class RegisterForm(forms.ModelForm):
         name = self.cleaned_data.get("display_name", "")
         return name.strip().title()
 
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Un compte existe déjà avec cette adresse e-mail."
+            )
+        return email
+
     def clean(self):
         cleaned_data = super().clean()
         p1 = cleaned_data.get("password")
         p2 = cleaned_data.get("password_confirm")
 
+        # 1. Validation de la robustesse du mot de passe (Même logique que le Front-end)
+        if p1:
+            if len(p1) < 8:
+                self.add_error(
+                    "password", "Le mot de passe doit contenir au moins 8 caractères."
+                )
+            if not re.search(r"[A-Z]", p1):
+                self.add_error(
+                    "password", "Le mot de passe doit contenir au moins une majuscule."
+                )
+            if not re.search(r"[0-9]", p1):
+                self.add_error(
+                    "password", "Le mot de passe doit contenir au moins un chiffre."
+                )
+            if not re.search(r"[^A-Za-z0-9]", p1) and len(p1) < 12:
+                self.add_error(
+                    "password",
+                    "Le mot de passe doit contenir un symbole ou faire plus de 12 caractères.",
+                )
+
+        # 2. Validation de la correspondance
         if p1 and p2 and p1 != p2:
             self.add_error(
                 "password_confirm", "Les deux mots de passe ne correspondent pas."
             )
 
+        # 3. Validation de l'invitation (Code Foyer)
         code = cleaned_data.get("household_code")
         if code:
             code = code.strip().upper()
@@ -69,7 +100,6 @@ class RegisterForm(forms.ModelForm):
                     "household_code", "Ce Code Foyer est invalide ou a expiré."
                 )
             else:
-                # On stocke l'invitation valide pour l'utiliser dans la vue !
                 cleaned_data["valid_invitation"] = invitation
 
         return cleaned_data
@@ -80,3 +110,26 @@ class RegisterForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class CustomSetPasswordForm(SetPasswordForm):
+    def clean_new_password1(self):
+        p1 = self.cleaned_data.get("new_password1")
+        if p1:
+            if len(p1) < 8:
+                raise forms.ValidationError(
+                    "Le mot de passe doit contenir au moins 8 caractères."
+                )
+            if not re.search(r"[A-Z]", p1):
+                raise forms.ValidationError(
+                    "Le mot de passe doit contenir au moins une majuscule."
+                )
+            if not re.search(r"[0-9]", p1):
+                raise forms.ValidationError(
+                    "Le mot de passe doit contenir au moins un chiffre."
+                )
+            if not re.search(r"[^A-Za-z0-9]", p1) and len(p1) < 12:
+                raise forms.ValidationError(
+                    "Le mot de passe doit contenir un symbole ou faire plus de 12 caractères."
+                )
+        return p1

@@ -17,6 +17,9 @@
 
     {% include "budget/components/input.html" with label="Nom d'utilisateur" name="username" autocomplete="username" required=True autofocus=True %}
     {% include "budget/components/input.html" with label="Mot de passe" type="password" name="password" autocomplete="current-password" required=True %}
+    <div class="flex items-center justify-end">
+      <a href="{% url 'password_reset' %}" class="text-xs text-brand hover:underline">Mot de passe oublié ?</a>
+    </div>
 
     <div class="pt-4">
       {% include "budget/components/button.html" with label="Se connecter" variant="primary" type="submit" %}

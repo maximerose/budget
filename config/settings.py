@@ -26,14 +26,14 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # Application definition
 INSTALLED_APPS = [
+    "core",
+    "budget",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "core",
-    "budget",
 ]
 
 MIDDLEWARE = [
@@ -120,11 +120,21 @@ STATIC_URL = "static/"
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Récupération du backend (Console par défaut en dev, SMTP en prod)
+EMAIL_BACKEND_CHOICE = os.getenv(
+    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+
 MAILERS = {
     "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        "BACKEND": "django.core.mail.backends.filebased.EmailBackend",
+        "OPTIONS": {
+            "file_path": BASE_DIR / "emails_dev",
+        },
     },
 }
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Larfeuil <noreply@larfeuil.app>")
 
 # Authentication
 LOGIN_REDIRECT_URL = "/"

@@ -6,6 +6,8 @@ __pycache__
 db.sqlite3
 node_modules/
 
+emails_dev/
+
 .vscode
 *.diff
 repomix*
