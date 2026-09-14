@@ -39,12 +39,8 @@
         hx-boost="true"
         hx-indicator="#page-loader">
 
-    <!-- ÉCRAN DE CHARGEMENT GLOBAL (Appelé via hx-indicator="#page-loader") -->
-    <div id="page-loader"
-         class="htmx-show-flex fixed inset-0 z-100 bg-brand-dark/80 backdrop-blur-sm flex-col items-center justify-center gap-4 pointer-events-none transition-opacity duration-300">
-      <div class="w-12 h-12 border-4 border-brand/20 border-t-brand rounded-full animate-spin"></div>
-      <span class="text-base font-bold text-slate-200 tracking-wide">Chargement en cours...</span>
-    </div>
+    <!-- ÉCRAN DE CHARGEMENT GLOBAL -->
+    {% include "budget/partials/shared/_loading_screen.html" %}
 
     {% if request.user.is_authenticated %}
       <!-- Top Navigation Bar -->

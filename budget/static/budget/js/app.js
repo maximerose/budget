@@ -1,51 +1,41 @@
+// =========================================================================
+// 1. GESTION DES NOTIFICATIONS (TOASTS)
+// =========================================================================
+
+// Fonction utilitaire centralisée
+function showToast(text, isError = false) {
+    const bgColor = isError ? "rgba(244, 63, 94, 0.85)" : "rgba(16, 185, 129, 0.85)";
+    
+    Toastify({
+        text: text, 
+        duration: isError ? 3000 : 1500, // On laisse l'erreur un peu plus longtemps
+        gravity: "bottom", 
+        position: "center",
+        style: { 
+            background: bgColor, 
+            backdropFilter: "blur(8px)", 
+            WebkitBackdropFilter: "blur(8px)", 
+            borderRadius: "9999px", 
+            padding: "4px 12px", 
+            fontSize: "0.75rem", 
+            color: "#020617", 
+            fontWeight: "600", 
+            boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", 
+            marginBottom: "4rem" 
+        }
+    }).showToast();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     // =========================================================================
-    // 1. GESTION DES NOTIFICATIONS (TOASTS)
+    // 2. AFFICHAGE DES MESSAGES DJANGO
     // =========================================================================
     const messages = document.querySelectorAll("#django-messages > div");
     messages.forEach((msg) => {
         const text = msg.getAttribute("data-message");
         const isError = msg.getAttribute("data-tag") === "error";
-        
-        // 85% d'opacité avec format RGBA
-        const bgColor = isError ? "rgba(244, 63, 94, 0.85)" : "rgba(16, 185, 129, 0.85)";
-
-        Toastify({
-            text: text, 
-            duration: 1500, 
-            gravity: "bottom", 
-            position: "center",
-            style: { 
-                background: bgColor, 
-                backdropFilter: "blur(8px)", // Effet verre dépoli !
-                WebkitBackdropFilter: "blur(8px)", // Pour Safari
-                borderRadius: "9999px", 
-                padding: "4px 12px", 
-                fontSize: "0.75rem", 
-                color: "#020617", 
-                fontWeight: "600", 
-                boxShadow: "0 4px 15px -3px rgba(0, 0, 0, 0.3)", 
-                marginBottom: "4rem" 
-            }
-        }).showToast();
+        showToast(text, isError);
     });
-
-    // =========================================================================
-    // 2. ANIMATION DU LOGO AU SCROLL (MOBILE)
-    // =========================================================================
-    const logo = document.getElementById('brand-logo');
-    if (logo) {
-        window.addEventListener('scroll', () => {
-            if (window.innerWidth < 640) {
-                const isScrolled = window.scrollY > 20;
-                logo.style.transform = isScrolled ? 'scale(0)' : 'scale(1)';
-                logo.style.width = isScrolled ? '0px' : 'auto';
-                logo.style.opacity = isScrolled ? '0' : '1';
-            } else {
-                logo.style.transform = ''; logo.style.width = ''; logo.style.opacity = '';
-            }
-        });
-    }
 });
 
 // =========================================================================
@@ -132,3 +122,14 @@ function dismissHighlight() {
         delete el.dataset.spotlight;
     });
 }
+
+// =========================================================================
+// 6. GESTION DES ERREURS GLOBALES (OFFLINE / 500) VIA HTMX
+// =========================================================================
+document.body.addEventListener('htmx:sendError', function(event) {
+    showToast("Erreur réseau. Vérifiez votre connexion internet.", true);
+});
+
+document.body.addEventListener('htmx:responseError', function(event) {
+    showToast("Une erreur est survenue sur le serveur. Réessayez plus tard.", true);
+});

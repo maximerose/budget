@@ -1,0 +1,15 @@
+{% load static %}
+<!-- ÉCRAN DE CHARGEMENT GLOBAL (Appelé via hx-indicator="#page-loader") -->
+<div id="page-loader"
+     class="htmx-show-flex fixed inset-0 z-100 bg-brand-dark/90 backdrop-blur-md flex-col items-center justify-center gap-6 pointer-events-none transition-opacity duration-300">
+
+  <!-- Logo animé en pulsation avec ombre portée -->
+  <div class="relative w-16 h-16 animate-pulse drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+    <img src="{% static 'budget/img/larfeuil_logo/larfeuil_logo.svg' %}"
+         alt="Chargement en cours"
+         class="w-full h-full object-contain" />
+  </div>
+
+  <!-- Texte modernisé -->
+  <span class="text-xs font-bold text-slate-400 tracking-[0.2em] uppercase">Chargement</span>
+</div>
