@@ -112,3 +112,9 @@ def merge_categories(source_category: Category, target_category: Category) -> No
 
     source_category.is_active = False
     source_category.save(update_fields=["is_active"])
+
+
+def remove_accents(text):
+    if not text:
+        return ""
+    return str(text).lower().translate(str.maketrans("éèêëàâäôöûüç", "eeeeaaaoouuc"))

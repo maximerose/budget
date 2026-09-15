@@ -590,7 +590,5 @@ class Command(BaseCommand):
             writer.writerows(tx_records)
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Extraction avec compteurs complétée : {len(recurring_records)} charges identifiées."
-            )
+            self.style.SUCCESS("Extraction terminée, lancez import_history_csv")
         )

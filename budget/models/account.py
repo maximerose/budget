@@ -1,7 +1,6 @@
 import datetime
 import random
 import string
-import uuid
 from decimal import Decimal
 from typing import ClassVar
 
@@ -106,6 +105,7 @@ class HouseholdInvitation(BaseModel):
 class AccountType(models.TextChoices):
     CHECKING = "CHECKING", "Compte courant"
     SAVINGS = "SAVINGS", "Compte épargne"
+    CASH = "CASH", "Espèces"
     BUSINESS = "BUSINESS", "Compte pro"
     MEAL_VOUCHER = "MEAL_VOUCHER", "Tickets resto"
     OTHER = "OTHER", "Autre"

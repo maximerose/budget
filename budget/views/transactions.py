@@ -1,11 +1,11 @@
 import datetime
 import json
 from decimal import Decimal
+from itertools import chain
 from urllib.request import Request
 
 from django.contrib import messages
 from django.db.models import Q
-from django.db.models.aggregates import Min
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -24,6 +24,7 @@ from budget.utils import (
     advance_date,
     calculate_budget_month,
     get_remaining_meal_voucher_ceiling,
+    get_target_month_from_request,
     htmx_login_required,
 )
 
@@ -145,7 +146,7 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
                 else None,
             )
 
-        messages.success(request, "Dépense ajoutée")
+        messages.success(request, "Opération ajoutée")
 
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
@@ -204,7 +205,6 @@ def quick_transaction_form_view(request: Request) -> HttpResponse:
     tr_accounts_info = []
 
     if tr_accounts:
-        # Récupération en une seule requête plate sans subqueries complexes
         today_txs = list(
             Transaction.objects.filter(
                 transaction_date=today,
@@ -297,36 +297,14 @@ def transaction_update_view(request: Request, transaction_id: str) -> HttpRespon
         if tx_type == "TRANSFER":
             source_id = request.POST.get("source_account")
             dest_id = request.POST.get("destination_account")
-            transfer_category_id = request.POST.get("transfer_category")
 
             tx.delete()
-
-            if transfer_category_id:
-                Transaction.objects.create(
-                    total_amount=total_amount,
-                    label=label or "Remboursement envoyé",
-                    category_id=transfer_category_id,
-                    bank_account_id=source_id,
-                    transaction_date=transaction_date,
-                    budget_month=budget_month,
-                    transaction_type=TransactionType.EXPENSE,
-                )
-                Transaction.objects.create(
-                    total_amount=-total_amount,
-                    label=label or "Remboursement reçu",
-                    category_id=transfer_category_id,
-                    bank_account_id=dest_id,
-                    transaction_date=transaction_date,
-                    budget_month=budget_month,
-                    transaction_type=TransactionType.EXPENSE,
-                )
-            else:
-                Transfer.objects.create(
-                    source_account_id=source_id,
-                    destination_account_id=dest_id,
-                    amount=total_amount,
-                    date=transaction_date,
-                )
+            Transfer.objects.create(
+                source_account_id=source_id,
+                destination_account_id=dest_id,
+                amount=total_amount,
+                date=transaction_date,
+            )
         else:
             if tx_type == TransactionType.EXPENSE:
                 category_id = request.POST.get("expense_category")
@@ -361,6 +339,8 @@ def transaction_update_view(request: Request, transaction_id: str) -> HttpRespon
             )
 
             tx.save()
+
+        messages.success(request, "Transaction modifiée")
 
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
@@ -456,6 +436,7 @@ def transaction_delete_view(request: Request, transaction_id: str) -> HttpRespon
 
     if request.method == "POST":
         tx.delete()
+        messages.success(request, "Transaction supprimée")
         response = HttpResponse("")
         response["HX-Refresh"] = "true"
         return response
@@ -464,115 +445,180 @@ def transaction_delete_view(request: Request, transaction_id: str) -> HttpRespon
 
 
 @htmx_login_required
-def monthly_history_view(request: Request) -> HttpResponse:
+@require_http_methods(["GET", "POST"])
+def transfer_update_view(request: Request, transfer_id: str) -> HttpResponse:
+    current_member = request.member
     household = request.household
-    today = timezone.localdate().replace(day=1)
 
-    # 1. Bornes globales
-    min_tx_date = Transaction.objects.filter(
-        bank_account__owner__household=household
-    ).aggregate(m=Min("budget_month"))["m"]
-
-    start_boundary = min_tx_date.replace(day=1) if min_tx_date else today
-    end_boundary = today
-
-    # 2. Récupération des filtres de dates
-    start_str = request.GET.get("start_month")
-    end_str = request.GET.get("end_month")
-
-    try:
-        start_date = (
-            datetime.date.fromisoformat(f"{start_str}-01")
-            if start_str
-            else start_boundary
-        )
-    except ValueError:
-        start_date = start_boundary
-
-    try:
-        end_date = (
-            datetime.date.fromisoformat(f"{end_str}-01") if end_str else end_boundary
-        )
-    except ValueError:
-        end_date = end_boundary
-
-    if start_date > end_date:
-        start_date, end_date = end_date, start_date
-
-    # 3. Liste des mois inclus
-    selected_months = []
-    curr = start_date
-    while curr <= end_date:
-        selected_months.append(curr)
-        curr = advance_date(curr, 1)
-
-    next_month_after_end = advance_date(end_date, 1)
-
-    # 4. Requête globale filtrée
-    transactions_qs = (
-        Transaction.objects.filter(
-            bank_account__owner__household=household,
-            budget_month__gte=start_date,
-            budget_month__lt=next_month_after_end,
-        )
-        .select_related(
-            "bank_account", "bank_account__owner", "category", "recurring_expense"
-        )
-        .order_by("-transaction_date", "-created_at")
+    transfer = get_object_or_404(
+        Transfer,
+        id=transfer_id,
+        source_account__owner__household=household,
     )
 
-    # 5. Groupement par mois
-    history_by_month = []
-    for m_date in reversed(selected_months):
-        month_txs = [
-            tx
-            for tx in transactions_qs
-            if tx.budget_month.year == m_date.year
-            and tx.budget_month.month == m_date.month
-        ]
+    if request.method == "POST":
+        source_id = request.POST.get("source_account")
+        dest_id = request.POST.get("destination_account")
+        amount = Decimal(request.POST.get("total_amount", "0.00"))
+        date_str = request.POST.get("transaction_date")
 
-        if month_txs:
-            total_income = sum(
-                (
-                    tx.total_amount
-                    for tx in month_txs
-                    if tx.transaction_type == "INCOME"
-                ),
-                Decimal("0.00"),
-            )
-            total_expense = sum(
-                (
-                    tx.total_amount
-                    for tx in month_txs
-                    if tx.transaction_type == "EXPENSE"
-                ),
-                Decimal("0.00"),
-            )
-            net_balance = total_income - total_expense
+        transfer.source_account_id = source_id
+        transfer.destination_account_id = dest_id
+        transfer.amount = amount
+        if date_str:
+            transfer.date = datetime.date.fromisoformat(date_str)
+        transfer.save()
 
-            history_by_month.append(
-                {
-                    "date": m_date,
-                    "transactions": month_txs,
-                    "total_income": total_income,
-                    "total_expense": total_expense,
-                    "net_balance": net_balance,
-                }
-            )
+        messages.success(request, "Transfert modifié")
+        response = HttpResponse("")
+        response["HX-Refresh"] = "true"
+        return response
 
-    available_months = []
-    curr = start_boundary
-    while curr <= end_boundary:
-        available_months.append(curr)
-        curr = advance_date(curr, 1)
+    categories_expense = Category.objects.filter(
+        is_active=True, household=household
+    ).exclude(type__in=[CategoryType.INCOME, CategoryType.SAVINGS])
 
-    context = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "available_months": available_months,
-        "history_by_month": history_by_month,
-        "member": request.member,
-        "breadcrumbs": ["Historique des transactions"],
-    }
+    categories_income = Category.objects.filter(
+        is_active=True, household=household, type=CategoryType.INCOME
+    ).exclude(type=CategoryType.SAVINGS)
 
-    return render(request, "budget/transactions/history_list.html", context)
+    accounts = list(
+        BankAccount.objects.filter(
+            Q(owner=current_member)
+            | Q(owner__household=household, visibility=Visibility.SHARED),
+            is_active=True,
+        )
+        .select_related("owner")
+        .distinct()
+    )
+
+    account_options = [
+        {
+            "id": acc.id,
+            "name": f"{acc.name} ({acc.owner.name})"
+            if acc.owner_id != current_member.id
+            else acc.name,
+        }
+        for acc in accounts
+    ]
+
+    tr_accounts = [
+        acc for acc in accounts if acc.account_type == AccountType.MEAL_VOUCHER
+    ]
+    tr_accounts_info = [
+        {
+            "id": str(tr.id),
+            "name": tr.name,
+            "remaining": float(
+                get_remaining_meal_voucher_ceiling(transfer.date, tr) or Decimal("0.00")
+            ),
+            "fallback_id": str(tr.fallback_account_id)
+            if tr.fallback_account_id
+            else "",
+        }
+        for tr in tr_accounts
+    ]
+
+    cat_tr_map = {str(c.id): c.is_meal_voucher_eligible for c in categories_expense}
+
+    return render(
+        request,
+        "budget/partials/transactions/_modal_quick_transaction.html",
+        {
+            "transfer": transfer,
+            "selected_account_id": transfer.source_account_id,
+            "selected_category_id": None,
+            "categories_expense": categories_expense,
+            "categories_income": categories_income,
+            "accounts": account_options,
+            "today": transfer.date,
+            "tr_accounts_info": tr_accounts_info,
+            "tr_accounts_info_json": json.dumps(tr_accounts_info),
+            "cat_tr_map": json.dumps(cat_tr_map),
+        },
+    )
+
+
+@htmx_login_required
+def transfer_delete_view(request: Request, transfer_id: str) -> HttpResponse:
+    member = request.member
+    transfer = get_object_or_404(
+        Transfer,
+        id=transfer_id,
+    )
+    if (
+        transfer.source_account.owner_id == member.id
+        or transfer.destination_account.owner_id == member.id
+    ) and request.method == "POST":
+        transfer.delete()
+        messages.success(request, "Transfert supprimé")
+        response = HttpResponse("")
+        response["HX-Refresh"] = "true"
+        return response
+
+    return HttpResponse("Méthode non autorisée", status=405)
+
+
+@htmx_login_required
+def monthly_history_view(request):
+    member = request.member
+    household = request.household
+
+    target_month = get_target_month_from_request(request)
+
+    accounts = BankAccount.objects.filter(
+        Q(owner=member) | Q(owner__household=household, visibility=Visibility.SHARED),
+        is_active=True,
+    ).distinct()
+
+    recent_txs = list(
+        Transaction.objects.filter(
+            bank_account__in=accounts,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+        ).select_related(
+            "category",
+            "bank_account",
+            "bank_account__owner",
+            "meal_voucher_bank_account",
+            "recurring_expense",
+        )
+    )
+
+    recent_transfers = list(
+        Transfer.objects.filter(
+            Q(source_account__in=accounts) | Q(destination_account__in=accounts),
+            date__year=target_month.year,
+            date__month=target_month.month,
+        ).select_related("source_account", "destination_account")
+    )
+
+    all_activity = sorted(
+        chain(recent_txs, recent_transfers),
+        key=lambda x: getattr(
+            x, "transaction_date", getattr(x, "date", datetime.date.min)
+        ),
+        reverse=True,
+    )
+
+    total_income = sum(
+        tx.total_amount for tx in recent_txs if tx.transaction_type == "INCOME"
+    )
+    total_expense = sum(
+        tx.total_amount for tx in recent_txs if tx.transaction_type == "EXPENSE"
+    )
+    net_balance = total_income - total_expense
+
+    return render(
+        request,
+        "budget/transactions/history_list.html",
+        {
+            "selected_month": target_month,
+            "member": member,
+            "transactions": all_activity,
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "net_balance": net_balance,
+            "breadcrumbs": ["Historique des transactions"],
+        },
+    )

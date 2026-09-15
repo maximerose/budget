@@ -1,80 +1,133 @@
 {% for tx in monthly_transactions %}
-  <div class="relative py-3 flex items-center justify-between gap-3 text-sm transition-opacity {% if tx.bank_account.owner_id != member.id %}opacity-60{% endif %}">
+  {% if not tx.transaction_type %}
+    <!-- ====== AFFICHAGE D'UN TRANSFERT ====== -->
+    <div class="relative py-3 flex items-center justify-between gap-3 text-sm transition-opacity {% if tx.source_account.owner_id != member.id and tx.destination_account.owner_id != member.id %}opacity-60{% endif %}">
+      <div class="absolute left-0 top-3 bottom-3 w-1 rounded-r-md shrink-0 bg-budget-savings"></div>
 
-    <!-- Ligne d'accentuation colorée -->
-    <div class="absolute left-0 top-3 bottom-3 w-1 rounded-r-md shrink-0 {% if tx.recurring_expense or tx.category and tx.category.type == 'RECURRING' %} bg-budget-recurring {% elif tx.category and tx.category.type == 'VARIABLE' %} bg-budget-variable {% elif tx.category and tx.category.type == 'SAVINGS' %} bg-budget-savings {% elif tx.transaction_type == 'INCOME' %} bg-budget-income {% else %} bg-slate-700 {% endif %}">
-    </div>
-
-    <!-- Gauche : Infos transaction -->
-    <div class="flex items-center gap-3 pl-3 overflow-hidden">
-      <!-- On centre bien l'icône dans la bulle avec flex items-center justify-center -->
-      <div class="w-9 h-9 rounded-xl bg-slate-800 border border-brand-border/60 items-center justify-center shrink-0 text-slate-400 hidden sm:flex">
-        {% if tx.transaction_type == 'INCOME' %}
-          {% include "budget/components/icon.html" with name="banknotes" class="w-5 h-5 text-budget-income" %}
-        {% else %}
-          {% include "budget/components/icon.html" with name="credit-card" class="w-5 h-5" %}
-        {% endif %}
+      <div class="flex items-center gap-3 pl-3 overflow-hidden">
+        <div class="w-9 h-9 rounded-xl bg-slate-800 border border-brand-border/60 items-center justify-center shrink-0 text-slate-400 hidden sm:flex">
+          {% include "budget/components/icon.html" with name="arrows-right-left" class="w-5 h-5 text-budget-savings" %}
+        </div>
+        <div class="truncate">
+          <p class="font-semibold text-slate-200 truncate">
+            {% if tx.destination_account.account_type == "SAVINGS" %}
+              Épargne {{ tx.destination_account.name }}
+            {% elif tx.source_account.account_type == "SAVINGS" %}
+              Retrait {{ tx.source_account.name }}
+            {% else %}
+              Virement interne
+            {% endif %}
+          </p>
+          <p class="text-[11px] text-slate-500 mt-0.5 truncate">
+            {{ tx.date|date:"d M Y" }} • De {{ tx.source_account.name }} vers {{ tx.destination_account.name }}
+          </p>
+        </div>
       </div>
 
-      <div class="truncate">
-        <p class="font-semibold text-slate-200 truncate">
-          {% if tx.label %}{{ tx.label }}{% elif tx.category %}{{ tx.category.name }}{% else %}{{ tx.recurring_expense.label }}{% endif %}
-        </p>
-
-        <p class="text-[11px] text-slate-500 mt-0.5 truncate">
-          {{ tx.transaction_date|date:"d M Y" }} • {{ tx.bank_account.name }}
-          {% if tx.bank_account.owner_id != member.id %}
-            <span class="text-slate-400 font-medium">({{ tx.bank_account.owner.name }})</span>
+      <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div class="text-right">
+          {% if tx.destination_account.account_type == "SAVINGS" %}
+            <span class="font-bold text-sm whitespace-nowrap text-budget-savings">+{{ tx.amount|floatformat:"2g" }} €</span>
+          {% elif tx.source_account.account_type == "SAVINGS" %}
+            <span class="font-bold text-sm whitespace-nowrap text-slate-400">-{{ tx.amount|floatformat:"2g" }} €</span>
+          {% else %}
+            <span class="font-bold text-sm whitespace-nowrap text-slate-300">{{ tx.amount|floatformat:"2g" }} €</span>
           {% endif %}
-        </p>
+        </div>
 
-        <!-- Pastilles Tickets Resto / Carte  -->
-        {% if tx.meal_voucher_amount > 0 %}
-          <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 bg-slate-900/60 px-2 py-0.5 rounded border border-brand-border/40 w-fit">
-            <span class="flex items-center gap-1 text-action-warning">
-              {% include "budget/components/icon.html" with name="ticket" class="w-3 h-3" %}
-              {{ tx.meal_voucher_amount|floatformat:"2g" }} €
-            </span>
-            <span>•</span>
-            <span class="flex items-center gap-1">
-              {% include "budget/components/icon.html" with name="credit-card" class="w-3 h-3" %}
-              {{ tx.fallback_amount|floatformat:"2g" }} €
-            </span>
+        {% if tx.source_account.owner_id == member.id or tx.destination_account.owner_id == member.id %}
+          <div class="flex items-center gap-1">
+            <button type="button"
+                    hx-get="{% url 'transfer_update' tx.id %}"
+                    hx-target="#modal-container"
+                    class="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    title="Modifier le transfert">
+              {% include "budget/components/icon.html" with name="pencil" class="w-4 h-4" %}
+            </button>
+            <button type="button"
+                    hx-post="{% url 'transfer_delete' tx.id %}"
+                    hx-confirm="Êtes-vous sûr de vouloir supprimer ce transfert ?"
+                    class="p-1.5 text-slate-500 hover:text-action-danger hover:bg-action-danger/10 rounded-lg transition-colors cursor-pointer"
+                    title="Supprimer">
+              {% include "budget/components/icon.html" with name="x-mark" class="w-4 h-4" %}
+            </button>
+          </div>
+        {% else %}
+          <div class="w-17 hidden sm:block"></div>
+        {% endif %}
+      </div>
+    </div>
+
+  {% else %}
+    <!-- ====== AFFICHAGE D'UNE TRANSACTION CLASSIQUE (DÉPENSE OU REVENU) ====== -->
+    <div class="relative py-3 flex items-center justify-between gap-3 text-sm transition-opacity {% if tx.bank_account.owner_id != member.id %}opacity-60{% endif %}">
+      <div class="absolute left-0 top-3 bottom-3 w-1 rounded-r-md shrink-0 {% if tx.recurring_expense or tx.category and tx.category.type == 'RECURRING' %} bg-budget-recurring {% elif tx.category and tx.category.type == 'VARIABLE' %} bg-budget-variable {% elif tx.category and tx.category.type == 'SAVINGS' %} bg-budget-savings {% elif tx.transaction_type == 'INCOME' %} bg-budget-income {% else %} bg-slate-700 {% endif %}">
+      </div>
+
+      <div class="flex items-center gap-3 pl-3 overflow-hidden">
+        <div class="w-9 h-9 rounded-xl bg-slate-800 border border-brand-border/60 items-center justify-center shrink-0 text-slate-400 hidden sm:flex">
+          {% if tx.transaction_type == "INCOME" %}
+            {% include "budget/components/icon.html" with name="banknotes" class="w-5 h-5 text-budget-income" %}
+          {% else %}
+            {% include "budget/components/icon.html" with name="credit-card" class="w-5 h-5" %}
+          {% endif %}
+        </div>
+
+        <div class="truncate">
+          <p class="font-semibold text-slate-200 truncate">
+            {% if tx.label %}{{ tx.label }}{% elif tx.category %}{{ tx.category.name }}{% else %}{{ tx.recurring_expense.label }}{% endif %}
+          </p>
+          <p class="text-[11px] text-slate-500 mt-0.5 truncate">
+            {{ tx.transaction_date|date:"d M Y" }} • {{ tx.bank_account.name }}
+            {% if tx.bank_account.owner_id != member.id %}
+              <span class="text-slate-400 font-medium">({{ tx.bank_account.owner.name }})</span>
+            {% endif %}
+          </p>
+
+          {% if tx.meal_voucher_amount > 0 %}
+            <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 bg-slate-900/60 px-2 py-0.5 rounded border border-brand-border/40 w-fit">
+              <span class="flex items-center gap-1 text-action-warning">
+                {% include "budget/components/icon.html" with name="ticket" class="w-3 h-3" %}
+                {{ tx.meal_voucher_amount|floatformat:"2g" }} €
+              </span>
+              <span>•</span>
+              <span class="flex items-center gap-1">
+                {% include "budget/components/icon.html" with name="credit-card" class="w-3 h-3" %}
+                {{ tx.fallback_amount|floatformat:"2g" }} €
+              </span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div class="text-right">
+          <span class="font-bold text-sm whitespace-nowrap {% if tx.transaction_type == 'EXPENSE' %}text-action-danger{% else %}text-budget-income{% endif %}">
+            {% if tx.transaction_type == "EXPENSE" %}-{% else %}+{% endif %}{{ tx.total_amount|floatformat:"2g" }} €
+          </span>
+        </div>
+
+        {% if tx.bank_account.owner_id == member.id %}
+          <div class="flex items-center gap-1">
+            <button type="button"
+                    hx-get="{% url 'transaction_update' tx.id %}"
+                    hx-target="#modal-container"
+                    class="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    title="Modifier">
+              {% include "budget/components/icon.html" with name="pencil" class="w-4 h-4" %}
+            </button>
+            <button type="button"
+                    hx-post="{% url 'transaction_delete' tx.id %}"
+                    hx-confirm="Êtes-vous sûr de vouloir supprimer cette transaction ?"
+                    class="p-1.5 text-slate-500 hover:text-action-danger hover:bg-action-danger/10 rounded-lg transition-colors cursor-pointer"
+                    title="Supprimer">
+              {% include "budget/components/icon.html" with name="x-mark" class="w-4 h-4" %}
+            </button>
           </div>
         {% endif %}
       </div>
     </div>
-
-    <!-- Droite : Montant & Boutons d'action -->
-    <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-      <div class="text-right">
-        <span class="font-bold text-sm whitespace-nowrap {% if tx.transaction_type == 'EXPENSE' %}text-action-danger{% else %}text-budget-income{% endif %}">
-          {% if tx.transaction_type == 'EXPENSE' %}-{% else %}+{% endif %}{{ tx.total_amount|floatformat:"2g" }} €
-        </span>
-      </div>
-
-      {% if tx.bank_account.owner_id == member.id %}
-        <div class="flex items-center gap-1">
-          <button hx-get="{% url 'transaction_update' tx.id %}"
-                  hx-target="#modal-container"
-                  class="p-1.5 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                  title="Modifier">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </button>
-          <button hx-post="{% url 'transaction_delete' tx.id %}"
-                  hx-confirm="Êtes-vous sûr de vouloir supprimer cette transaction ?"
-                  class="p-1.5 text-slate-500 hover:text-action-danger hover:bg-action-danger/10 rounded-lg transition-colors cursor-pointer"
-                  title="Supprimer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
-      {% endif %}
-    </div>
-  </div>
+  {% endif %}
 {% empty %}
   <p class="text-xs text-slate-500 py-3 text-center">Aucune transaction enregistrée ce mois-ci.</p>
 {% endfor %}

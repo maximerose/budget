@@ -30,16 +30,16 @@
           rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link rel="stylesheet"
-          type="text/css"
-          href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{% static 'budget/js/app.js' %}" defer></script>
     <script src="{% static 'budget/js/quick_transaction.js' %}"></script>
   </head>
 
-  <body class="font-sans min-h-screen flex flex-col antialiased selection:bg-brand selection:text-white"
+  <body class="font-sans min-h-screen flex flex-col antialiased selection:bg-brand selection:text-white overflow-x-clip"
         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
         hx-boost="true"
         hx-indicator="#page-loader">
@@ -101,7 +101,7 @@
     {% endif %}
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-24 md:pb-12{% else %}py-6{% endif %}">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6 {% if request.user.is_authenticated %}pt-20 sm:pt-24 pb-24 md:pb-12{% else %}py-6{% endif %} overflow-visible">
       {% block content %}{% endblock %}
     </main>
 

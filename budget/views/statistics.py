@@ -4,14 +4,15 @@ from decimal import Decimal
 from urllib.request import Request
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Min, Sum
+from django.db.models import Min, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from budget.models import Transaction
+from budget.models import BankAccount, RecurringExpense, Transaction, Transfer
+from budget.models.account import AccountType
 from budget.models.category import CategoryType
-from budget.utils import advance_date
+from budget.utils import advance_date, remove_accents
 
 
 @login_required
@@ -26,6 +27,8 @@ def statistics_view(request: Request) -> HttpResponse:
     start_boundary = min_tx_date.replace(day=1) if min_tx_date else today
     end_boundary = today
 
+    current_year_start = datetime.date(today.year, 1, 1)
+
     start_str = request.GET.get("start_month")
     end_str = request.GET.get("end_month")
 
@@ -33,10 +36,10 @@ def statistics_view(request: Request) -> HttpResponse:
         start_date = (
             datetime.date.fromisoformat(f"{start_str}-01")
             if start_str
-            else start_boundary
+            else current_year_start
         )
     except ValueError:
-        start_date = start_boundary
+        start_date = current_year_start
 
     try:
         end_date = (
@@ -62,6 +65,21 @@ def statistics_view(request: Request) -> HttpResponse:
         budget_month__gte=start_date,
         budget_month__lt=next_month_after_end,
     )
+
+    range_transfers = Transfer.objects.filter(
+        Q(source_account__owner__household=household)
+        | Q(destination_account__owner__household=household),
+        date__gte=start_date,
+        date__lt=next_month_after_end,
+    ).select_related("source_account", "destination_account")
+
+    rec_expenses = RecurringExpense.objects.filter(household=household, is_active=True)
+
+    savings_accounts = BankAccount.objects.filter(
+        owner__household=household,
+        account_type=AccountType.SAVINGS,
+        is_active=True,
+    ).select_related("owner")
 
     category_types = [
         (CategoryType.INCOME, "Revenus", "#10b981", "rgba(16, 185, 129, 0.1)"),
@@ -115,83 +133,305 @@ def statistics_view(request: Request) -> HttpResponse:
         ] or Decimal("0.00")
         return (inc - exp) if expected_type == "INCOME" else (exp - inc)
 
+    def get_savings_month_amount(target_acc_id, m_date):
+        m_transfers_in = sum(
+            tr.amount
+            for tr in range_transfers
+            if str(tr.destination_account_id) == target_acc_id
+            and tr.date.year == m_date.year
+            and tr.date.month == m_date.month
+        ) or Decimal("0.00")
+        m_transfers_out = sum(
+            tr.amount
+            for tr in range_transfers
+            if str(tr.source_account_id) == target_acc_id
+            and tr.date.year == m_date.year
+            and tr.date.month == m_date.month
+        ) or Decimal("0.00")
+        m_txs_inc = range_txs.filter(
+            bank_account_id=target_acc_id,
+            transaction_type="INCOME",
+            budget_month__year=m_date.year,
+            budget_month__month=m_date.month,
+        ).aggregate(s=Sum("total_amount"))["s"] or Decimal("0.00")
+        m_txs_exp = range_txs.filter(
+            bank_account_id=target_acc_id,
+            transaction_type="EXPENSE",
+            budget_month__year=m_date.year,
+            budget_month__month=m_date.month,
+        ).aggregate(s=Sum("total_amount"))["s"] or Decimal("0.00")
+        return (m_transfers_in - m_transfers_out) + (m_txs_inc - m_txs_exp)
+
     TOP_LIMIT = 5
 
     for cat_type_key, cat_type_label, border_color, bg_color in category_types:
         categories_data = []
-        type_txs = range_txs.filter(category__type=cat_type_key)
-        cats = (
-            type_txs.values("category__id", "category__name")
-            .distinct()
-            .order_by("category__name")
-        )
-
         type_total_period = Decimal("0.00")
+        type_monthly_totals = [0.0] * len(selected_months)
         expected_type = "INCOME" if cat_type_key == CategoryType.INCOME else "EXPENSE"
 
-        type_monthly_totals = [0.0] * len(selected_months)
-
-        for c in cats:
-            c_id = c["category__id"]
-            c_name = c["category__name"]
-            cat_txs = type_txs.filter(category_id=c_id)
-            total_period = get_net_amount(cat_txs, expected_type)
-
-            monthly_breakdown = []
-            active_months_count = 0
-
-            prev_month_date = start_date.replace(day=1) - datetime.timedelta(days=1)
-            prev_qs = cat_txs.filter(
-                budget_month__year=prev_month_date.year,
-                budget_month__month=prev_month_date.month,
+        # --- CAS 1 : REVENUS & CHARGES VARIABLES ---
+        if cat_type_key in [CategoryType.INCOME, CategoryType.VARIABLE]:
+            type_txs = range_txs.filter(category__type=cat_type_key)
+            cats = (
+                type_txs.values("category__id", "category__name")
+                .distinct()
+                .order_by("category__name")
             )
-            prev_amount = get_net_amount(prev_qs, expected_type)
 
-            for m_idx, m_date in enumerate(selected_months):
-                curr_qs = cat_txs.filter(
-                    budget_month__year=m_date.year, budget_month__month=m_date.month
+            for c in cats:
+                c_id = c["category__id"]
+                c_name = c["category__name"]
+                cat_txs = type_txs.filter(category_id=c_id)
+                total_period = get_net_amount(cat_txs, expected_type)
+
+                monthly_breakdown = []
+                active_months_count = 0
+
+                prev_month_date = start_date.replace(day=1) - datetime.timedelta(days=1)
+                prev_qs = cat_txs.filter(
+                    budget_month__year=prev_month_date.year,
+                    budget_month__month=prev_month_date.month,
                 )
-                m_amount = get_net_amount(curr_qs, expected_type)
+                prev_amount = get_net_amount(prev_qs, expected_type)
 
-                if m_amount != 0:
-                    active_months_count += 1
+                for m_idx, m_date in enumerate(selected_months):
+                    curr_qs = cat_txs.filter(
+                        budget_month__year=m_date.year,
+                        budget_month__month=m_date.month,
+                    )
+                    m_amount = get_net_amount(curr_qs, expected_type)
 
-                if m_amount > prev_amount:
-                    evo = "up"
-                elif m_amount < prev_amount:
-                    evo = "down"
+                    if m_amount != 0:
+                        active_months_count += 1
+
+                    if m_amount > prev_amount:
+                        evo = "up"
+                    elif m_amount < prev_amount:
+                        evo = "down"
+                    else:
+                        evo = "same"
+
+                    monthly_breakdown.append(
+                        {"date": m_date, "amount": m_amount, "evolution": evo}
+                    )
+                    type_monthly_totals[m_idx] += float(m_amount)
+                    prev_amount = m_amount
+
+                divisor = Decimal(active_months_count or 1)
+                type_total_period += total_period
+
+                categories_data.append(
+                    {
+                        "id": c_id,
+                        "name": c_name,
+                        "total_period": total_period,
+                        "monthly_avg": total_period / divisor,
+                        "active_months": active_months_count,
+                        "has_variation": False,
+                        "months": monthly_breakdown,
+                    }
+                )
+
+        # --- CAS 2 : CHARGES FIXES ---
+        elif cat_type_key == CategoryType.RECURRING:
+            type_txs = range_txs.filter(
+                Q(category__type=CategoryType.RECURRING)
+                | Q(recurring_expense__isnull=False)
+            ).select_related("recurring_expense", "category")
+
+            items_dict = {}
+            for r in rec_expenses:
+                items_dict[str(r.id)] = r.label
+
+            for tx in type_txs:
+                if tx.recurring_expense_id:
+                    items_dict[str(tx.recurring_expense_id)] = (
+                        tx.recurring_expense.label
+                    )
                 else:
-                    evo = "same"
+                    lbl = tx.label or (tx.category.name if tx.category else "Autre")
+                    items_dict[f"custom_{lbl}"] = lbl
 
-                monthly_breakdown.append(
-                    {"date": m_date, "amount": m_amount, "evolution": evo}
-                )
-                type_monthly_totals[m_idx] += float(m_amount)
-                prev_amount = m_amount
-
-            divisor = Decimal(active_months_count or 1)
-            type_total_period += total_period
-
-            categories_data.append(
-                {
-                    "id": c_id,
-                    "name": c_name,
-                    "total_period": total_period,
-                    "monthly_avg": total_period / divisor,
-                    "active_months": active_months_count,
-                    "months": monthly_breakdown,
-                }
+            sorted_items = sorted(
+                items_dict.items(), key=lambda x: remove_accents(x[1])
             )
 
-        # Tri des catégories pour alimenter le graphique individuel
-        sorted_cats_for_chart = sorted(
-            categories_data, key=lambda item: item["total_period"], reverse=True
-        )
+            for item_id, item_name in sorted_items:
+                if item_id.startswith("custom_"):
+                    item_txs = type_txs.filter(
+                        recurring_expense__isnull=True, label=item_name
+                    )
+                else:
+                    item_txs = type_txs.filter(recurring_expense_id=item_id)
+
+                total_period = get_net_amount(item_txs, "EXPENSE")
+
+                monthly_breakdown = []
+                active_months_count = 0
+
+                prev_month_date = start_date.replace(day=1) - datetime.timedelta(days=1)
+                if item_id.startswith("custom_"):
+                    prev_qs = type_txs.filter(
+                        recurring_expense__isnull=True,
+                        label=item_name,
+                        budget_month__year=prev_month_date.year,
+                        budget_month__month=prev_month_date.month,
+                    )
+                else:
+                    prev_qs = type_txs.filter(
+                        recurring_expense_id=item_id,
+                        budget_month__year=prev_month_date.year,
+                        budget_month__month=prev_month_date.month,
+                    )
+                prev_amount = get_net_amount(prev_qs, "EXPENSE")
+
+                for m_idx, m_date in enumerate(selected_months):
+                    if item_id.startswith("custom_"):
+                        curr_qs = type_txs.filter(
+                            recurring_expense__isnull=True,
+                            label=item_name,
+                            budget_month__year=m_date.year,
+                            budget_month__month=m_date.month,
+                        )
+                    else:
+                        curr_qs = type_txs.filter(
+                            recurring_expense_id=item_id,
+                            budget_month__year=m_date.year,
+                            budget_month__month=m_date.month,
+                        )
+                    m_amount = get_net_amount(curr_qs, "EXPENSE")
+
+                    if m_amount != 0:
+                        active_months_count += 1
+
+                    if m_amount > prev_amount:
+                        evo = "up"
+                    elif m_amount < prev_amount:
+                        evo = "down"
+                    else:
+                        evo = "same"
+
+                    monthly_breakdown.append(
+                        {"date": m_date, "amount": m_amount, "evolution": evo}
+                    )
+                    type_monthly_totals[m_idx] += float(m_amount)
+                    prev_amount = m_amount
+
+                if total_period != Decimal("0.00") or active_months_count > 0:
+                    divisor = Decimal(active_months_count or 1)
+                    type_total_period += total_period
+
+                    active_amounts = [
+                        m["amount"] for m in monthly_breakdown if m["amount"] != 0
+                    ]
+                    has_variation = len(set(active_amounts)) > 1
+
+                    categories_data.append(
+                        {
+                            "id": item_id,
+                            "name": item_name,
+                            "total_period": total_period,
+                            "monthly_avg": total_period / divisor,
+                            "active_months": active_months_count,
+                            "has_variation": has_variation,
+                            "months": monthly_breakdown,
+                        }
+                    )
+
+        # --- CAS 3 : ÉPARGNE ---
+        elif cat_type_key == CategoryType.SAVINGS:
+            savings_acc_dict = {}
+            for acc in savings_accounts:
+                savings_acc_dict[str(acc.id)] = acc.name
+
+            for tr in range_transfers:
+                if (
+                    tr.destination_account
+                    and tr.destination_account.account_type == AccountType.SAVINGS
+                ):
+                    savings_acc_dict[str(tr.destination_account_id)] = (
+                        tr.destination_account.name
+                    )
+                if (
+                    tr.source_account
+                    and tr.source_account.account_type == AccountType.SAVINGS
+                ):
+                    savings_acc_dict[str(tr.source_account_id)] = tr.source_account.name
+
+            sorted_accounts = sorted(
+                savings_acc_dict.items(), key=lambda x: remove_accents(x[1])
+            )
+
+            for acc_id, acc_name in sorted_accounts:
+                monthly_breakdown = []
+                active_months_count = 0
+                total_period = Decimal("0.00")
+
+                prev_month_date = start_date.replace(day=1) - datetime.timedelta(days=1)
+                prev_amount = get_savings_month_amount(acc_id, prev_month_date)
+
+                for m_idx, m_date in enumerate(selected_months):
+                    m_amount = get_savings_month_amount(acc_id, m_date)
+
+                    if m_amount != 0:
+                        active_months_count += 1
+
+                    if m_amount > prev_amount:
+                        evo = "up"
+                    elif m_amount < prev_amount:
+                        evo = "down"
+                    else:
+                        evo = "same"
+
+                    monthly_breakdown.append(
+                        {"date": m_date, "amount": m_amount, "evolution": evo}
+                    )
+                    total_period += m_amount
+                    type_monthly_totals[m_idx] += float(m_amount)
+                    prev_amount = m_amount
+
+                if total_period != Decimal("0.00") or active_months_count > 0:
+                    divisor = Decimal(active_months_count or 1)
+                    type_total_period += total_period
+
+                    categories_data.append(
+                        {
+                            "id": acc_id,
+                            "name": acc_name,
+                            "total_period": total_period,
+                            "monthly_avg": total_period / divisor,
+                            "active_months": active_months_count,
+                            "has_variation": False,
+                            "months": monthly_breakdown,
+                        }
+                    )
+
+        # --- TRI & PRÉPARATION DES DATASETS CHART.JS ---
+        if cat_type_key == CategoryType.RECURRING:
+            sorted_cats_for_chart = sorted(
+                categories_data,
+                key=lambda item: (
+                    not item.get("has_variation", False),
+                    -item["total_period"],
+                ),
+            )
+        else:
+            sorted_cats_for_chart = sorted(
+                categories_data, key=lambda item: item["total_period"], reverse=True
+            )
 
         cat_datasets = []
+        has_any_variation = any(c.get("has_variation", False) for c in categories_data)
+
         for i, c in enumerate(sorted_cats_for_chart):
             cat_monthly_values = [float(m["amount"]) for m in c["months"]]
-            is_hidden_by_default = i >= TOP_LIMIT
+            has_var = c.get("has_variation", False)
+
+            if cat_type_key == CategoryType.RECURRING and has_any_variation:
+                is_hidden_by_default = not has_var
+            else:
+                is_hidden_by_default = i >= TOP_LIMIT
 
             cat_datasets.append(
                 {
@@ -205,6 +445,7 @@ def statistics_view(request: Request) -> HttpResponse:
                     "pointRadius": 3,
                     "pointHitRadius": 10,
                     "hidden": is_hidden_by_default,
+                    "hasVariation": has_var,
                 }
             )
 
@@ -212,13 +453,12 @@ def statistics_view(request: Request) -> HttpResponse:
             {
                 "type_key": cat_type_key,
                 "label": cat_type_label,
-                "categories": categories_data,
+                "categories": sorted_cats_for_chart,
                 "total_period": type_total_period,
                 "monthly_avg": type_total_period / Decimal(nb_period_months),
             }
         )
 
-        # Courbe du graphique global
         chart_data_combined["datasets"].append(
             {
                 "label": f" {cat_type_label}",

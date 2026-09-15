@@ -18,7 +18,7 @@ from budget.views.categories import (
     settings_category_merge_view,
 )
 from budget.views.dashboard import pay_recurring_expense_view
-from budget.views.forecast import forecast_list_view
+from budget.views.forecast import forecast_list_view, quick_forecast_override
 from budget.views.profile import (
     settings_generate_invite,
     settings_household_update,
@@ -38,6 +38,8 @@ from budget.views.transactions import (
     monthly_history_view,
     transaction_delete_view,
     transaction_update_view,
+    transfer_delete_view,
+    transfer_update_view,
 )
 
 urlpatterns = [
@@ -108,6 +110,11 @@ urlpatterns = [
         name="quick_transaction_form",
     ),
     path(
+        "forecast/quick-override/<uuid:expense_id>/",
+        quick_forecast_override,
+        name="quick_forecast_override",
+    ),
+    path(
         "account/<str:account_id>/adjust/",
         adjust_account_balance_view,
         name="adjust_account_balance",
@@ -126,6 +133,16 @@ urlpatterns = [
         "transactions/<uuid:transaction_id>/delete/",
         transaction_delete_view,
         name="transaction_delete",
+    ),
+    path(
+        "transfers/<uuid:transfer_id>/update/",
+        transfer_update_view,
+        name="transfer_update",
+    ),
+    path(
+        "transfers/<uuid:transfer_id>/delete/",
+        transfer_delete_view,
+        name="transfer_delete",
     ),
     path(
         "transactions/history/",

@@ -1,4 +1,4 @@
-<form hx-post="{% if transaction %}{% url 'transaction_update' transaction.id %}{% else %}{% url 'quick_transaction_form' %}{% endif %}"
+<form hx-post="{% if transfer %}{% url 'transfer_update' transfer.id %}{% elif transaction %}{% url 'transaction_update' transaction.id %}{% else %}{% url 'quick_transaction_form' %}{% endif %}"
       hx-target="#modal-container"
       hx-swap="innerHTML"
       id="quick-transaction-form">
@@ -11,7 +11,7 @@
                    name="tx_type"
                    value="EXPENSE"
                    class="peer hidden"
-                   {% if not transaction or transaction.transaction_type == 'EXPENSE' %}checked{% endif %}
+                   {% if not transaction and not transfer or transaction and transaction.transaction_type == 'EXPENSE' %}checked{% endif %}
                    onchange="toggleTxType()" />
             <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-action-danger/20 peer-checked:text-action-danger transition-all">Dépense</div>
         </label>
@@ -20,12 +20,17 @@
                    name="tx_type"
                    value="INCOME"
                    class="peer hidden"
-                   {% if transaction.transaction_type == 'INCOME' %}checked{% endif %}
+                   {% if transaction and transaction.transaction_type == 'INCOME' %}checked{% endif %}
                    onchange="toggleTxType()" />
             <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-budget-income/20 peer-checked:text-budget-income transition-all">Revenu</div>
         </label>
         <label class="flex-1 cursor-pointer">
-            <input type="radio" name="tx_type" value="TRANSFER" class="peer hidden" onchange="toggleTxType()" />
+            <input type="radio"
+                   name="tx_type"
+                   value="TRANSFER"
+                   class="peer hidden"
+                   {% if transfer %}checked{% endif %}
+                   onchange="toggleTxType()" />
             <div class="text-center py-1.5 rounded-lg text-sm font-bold text-slate-500 peer-checked:bg-budget-initial/20 peer-checked:text-budget-initial transition-all">Transfert</div>
         </label>
     </div>
@@ -36,18 +41,17 @@
             <input type="text"
                    inputmode="decimal"
                    id="total_amount_display"
-                   value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}"
+                   value="{% if transfer %}{{ transfer.amount|stringformat:'.2f' }}{% elif transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}"
                    class="w-[4.5ch] bg-transparent text-center text-5xl font-extrabold text-slate-100 placeholder-slate-700 focus:outline-none transition-all duration-75"
                    placeholder="0.00"
                    autofocus
                    oninput="formatCurrency(this, 'total_amount'); autoResizeAmount();"
                    onblur="formatCurrencyOnBlur(this, 'total_amount')" />
 
-            <!-- Le champ caché pour Django -->
             <input type="hidden"
                    id="total_amount"
                    name="total_amount"
-                   value="{% if transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}" />
+                   value="{% if transfer %}{{ transfer.amount|stringformat:'.2f' }}{% elif transaction %}{{ transaction.total_amount|stringformat:'.2f' }}{% endif %}" />
             <span class="text-4xl font-extrabold text-slate-500 mt-1">€</span>
         </div>
         <div id="refund-hint"
@@ -63,7 +67,6 @@
             {% include "budget/components/select.html" with label="Catégorie" name="expense_category" options=categories_expense selected=selected_category_id allow_create=True create_type="category" %}
             {% include "budget/components/select.html" with label="Compte Débité" name="expense_account" options=accounts selected=selected_account_id %}
 
-            <!-- Section Tickets Resto -->
             {% if tr_accounts_info %}
                 <div id="meal-voucher-wrapper"
                      class="hidden mt-4 p-3 bg-slate-900/50 rounded-xl border border-brand-border">
@@ -96,47 +99,39 @@
                     </div>
                 </div>
 
-                <!-- Message d'alerte plafond atteint -->
                 <div id="tr-empty-message"
                      class="hidden mt-4 p-3 bg-action-warning/10 text-action-warning rounded-xl border border-action-warning/30 text-sm text-center">
                     Vous avez atteint votre plafond Tickets Resto pour aujourd'hui.
                 </div>
             {% endif %}
         </div>
+    </div>
 
-        <div id="block-income" class="hidden">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id allow_create=True create_type="category" %}
-                {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
-            </div>
+    <div id="block-income" class="hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% include "budget/components/select.html" with label="Catégorie" name="income_category" options=categories_income selected=selected_category_id allow_create=True create_type="category" %}
+            {% include "budget/components/select.html" with label="Compte Crédité" name="income_account" options=accounts selected=selected_account_id %}
         </div>
     </div>
 
     <!-- BLOC TRANSFERT -->
     <div id="block-transfer" class="hidden space-y-3">
-        <!-- Conteneur flex pour inclure le bouton d'inversion -->
         <div class="flex flex-col sm:flex-row sm:items-end gap-3">
             <div class="w-full sm:flex-1">
-                {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=selected_account_id %}
+                {% include "budget/components/select.html" with label="Depuis le compte" name="source_account" options=accounts selected=transfer.source_account_id|default:selected_account_id %}
             </div>
 
-            <!-- Bouton Inverser (vertical sur mobile, horizontal sur Desktop) -->
             <div class="flex justify-center shrink-0 sm:pb-0.5 relative z-10 -my-2 sm:my-0">
                 <button type="button"
-                        onclick="swapTransferAccounts()"
+                        onclick="swapTransferAccounts(event)"
                         class="p-2 bg-slate-800 border border-slate-700 hover:border-brand hover:bg-brand/10 rounded-full text-slate-400 hover:text-brand transition-all cursor-pointer shadow-sm active:scale-95"
                         title="Inverser les comptes">
-                    <svg class="w-5 h-5 rotate-90 sm:rotate-0 transition-transform"
-                         fill="none"
-                         stroke="currentColor"
-                         viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
+                    {% include "budget/components/icon.html" with name="arrows-up-down" class="w-5 h-5 rotate-90 sm:rotate-0 transition-transform" %}
                 </button>
             </div>
 
             <div class="w-full sm:flex-1">
-                {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts %}
+                {% include "budget/components/select.html" with label="Vers le compte" name="destination_account" options=accounts selected=transfer.destination_account_id %}
             </div>
         </div>
 
@@ -151,15 +146,8 @@
 
     <!-- 4. Champs Communs -->
     <div class="mt-4 space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Date</label>
-                <input type="date"
-                       name="transaction_date"
-                       value="{{ today|date:'Y-m-d' }}"
-                       class="input-base px-3 py-2 text-sm"
-                       required />
-            </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% include "budget/components/input.html" with label="Date" type="date" name="transaction_date" value=transfer.date|default:today|date:"Y-m-d" required=True %}
 
             <div id="imputation-wrapper">
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Imputation</label>
@@ -192,18 +180,15 @@
             </div>
         </div>
 
-        <input type="text"
-               name="label"
-               value="{{ transaction.label|default:'' }}"
-               class="input-base px-3 py-2 text-sm"
-               placeholder="Libellé ou commentaire..." />
+        {% include "budget/components/input.html" with label="Libellé / Note (Optionnel)" name="label" value=transaction.label|default:"" placeholder="Libellé ou commentaire..." %}
     </div>
 
     <script>
         window.catTrMap = JSON.parse('{{ cat_tr_map|escapejs }}');
         window.trAccountsInfo = JSON.parse('{{ tr_accounts_info_json|escapejs|default:"[]" }}');
-        window.isEditMode = "{{ transaction|yesno:'true,false' }}" === "true";
-    
+        window.isEditMode = "{{ transaction|yesno:'true,false' }}" === "true" || "{{ transfer|yesno:'true,false' }}" === "true";
+        window.initialTxType = "{% if transfer %}TRANSFER{% elif transaction %}{{ transaction.transaction_type }}{% else %}EXPENSE{% endif %}";
+
         initQuickTransactionForm();
     </script>
 </form>

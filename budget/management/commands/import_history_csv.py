@@ -16,6 +16,7 @@ from budget.models import (
     RecurringExpense,
     Transaction,
     TransactionType,
+    Transfer,
 )
 from budget.models.account import AccountType
 from budget.models.category import CategoryType
@@ -36,6 +37,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # 0. NETTOYAGE DES DOUBLONS HISTORIQUES
         Transaction.objects.all().delete()
+        Transfer.objects.all().delete()  # <-- On nettoie aussi les transferts !
         RecurringExpense.objects.all().delete()
         BankAccount.objects.all().delete()
 
@@ -70,7 +72,6 @@ class Command(BaseCommand):
             username=admin_user,
             defaults={"is_staff": True, "is_superuser": True},
         )
-        # On force la mise à jour avec les infos du .env
         user_maxime.email = admin_email
         user_maxime.set_password(admin_pwd)
         user_maxime.save()
@@ -79,7 +80,6 @@ class Command(BaseCommand):
             username=laurie_user,
             defaults={"is_staff": False, "is_superuser": False},
         )
-        # Pareil pour Laurie
         user_laurie.email = laurie_email
         user_laurie.set_password(laurie_pwd)
         user_laurie.save()
@@ -148,6 +148,11 @@ class Command(BaseCommand):
 
         def get_or_create_category(cat_name, cat_type):
             clean_cat = cat_name.strip() or "Divers"
+
+            # Fusion "Aménagement" -> "Aménagement / Maison"
+            if clean_cat.lower() in ["aménagement", "aménagement / maison"]:
+                clean_cat = "Aménagement / Maison"
+
             key = (household.id, clean_cat.lower())
             if key not in categories_map:
                 cat = Category.objects.filter(
@@ -172,7 +177,6 @@ class Command(BaseCommand):
                         if row["last_balance"]
                         else Decimal("0.00")
                     )
-                    # On force tous les comptes en PRIVATE
                     acc, _ = BankAccount.objects.get_or_create(
                         owner=member,
                         name=acc_name,
@@ -190,10 +194,6 @@ class Command(BaseCommand):
         )
         account_pro = get_or_create_account(
             member_maxime, "Compte pro", AccountType.BUSINESS, Visibility.PRIVATE
-        )
-
-        category_recurring = get_or_create_category(
-            "Charges Fixes", CategoryType.RECURRING
         )
 
         # --- STEP 2 : CHARGES RÉCURRENTES (TOUT EN PRIVÉ) ---
@@ -231,17 +231,14 @@ class Command(BaseCommand):
                     except ValueError:
                         due_date = None
 
-                    # Suffixe pour la BDD uniquement en cas d'homonymie évidente
                     final_label = label
-                    if owner_raw in ["Pro", "Laurie"]:
-                        final_label = f"{label} ({owner_raw})"
 
                     rec, _ = RecurringExpense.objects.update_or_create(
                         household=household,
                         label=final_label,
                         defaults={
                             "owner": owner_obj,
-                            "visibility": Visibility.PRIVATE,  # On force tout en Privé
+                            "visibility": Visibility.PRIVATE,
                             "total_amount": Decimal(row["total_amount"])
                             if row["total_amount"]
                             else Decimal("0.00"),
@@ -249,15 +246,15 @@ class Command(BaseCommand):
                             if row["frequency_months"]
                             else 1,
                             "is_variable": row["is_variable"] == "True",
-                            "category": category_recurring,
                             "default_bank_account": target_account,
                             "usual_due_day": due_date,
                         },
                     )
                     recurring_map[key] = rec
 
-        # --- STEP 3 : TRANSACTIONS ---
+        # --- STEP 3 : TRANSACTIONS ET TRANSFERTS ---
         transactions_to_create = []
+        transfers_to_create = []  # <-- On ajoute une liste pour les transferts
 
         with open(tx_file, mode="r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -278,25 +275,52 @@ class Command(BaseCommand):
                 mv_amount = Decimal(row.get("meal_voucher_amount", "0.0"))
 
                 member = get_or_create_member(user_raw)
+
+                # Le compte "principal" (celui d'où l'argent part ou arrive en standard)
                 if user_raw == "Pro":
-                    account = get_or_create_account(
+                    base_account = get_or_create_account(
                         member, "Compte pro", AccountType.BUSINESS, Visibility.PRIVATE
                     )
-                elif section == "SAVINGS":
-                    account = get_or_create_account(
-                        member,
-                        label_or_cat or "Livret A",
-                        map_account_type(label_or_cat),
-                        Visibility.PRIVATE,
-                    )
                 else:
-                    account = get_or_create_account(
+                    base_account = get_or_create_account(
                         member,
                         "Compte courant",
                         AccountType.CHECKING,
                         Visibility.PRIVATE,
                     )
 
+                # --- NOUVELLE LOGIQUE POUR L'ÉPARGNE (Transferts) ---
+                if section == "SAVINGS":
+                    savings_account = get_or_create_account(
+                        member,
+                        label_or_cat or "Livret A",
+                        map_account_type(label_or_cat),
+                        Visibility.PRIVATE,
+                    )
+
+                    # Un montant positif en épargne = On a mis de côté (Courant -> Epargne)
+                    # Un montant négatif = On a pioché dedans (Epargne -> Courant)
+                    if raw_amount >= 0:
+                        src_acc = base_account
+                        dst_acc = savings_account
+                    else:
+                        src_acc = savings_account
+                        dst_acc = base_account
+
+                    transfers_to_create.append(
+                        Transfer(
+                            source_account=src_acc,
+                            destination_account=dst_acc,
+                            amount=abs(raw_amount),
+                            date=tx_date,
+                        )
+                    )
+                    # On passe à la ligne suivante de la boucle, car ce n'est pas une Transaction !
+                    continue
+                # --------------------------------------------------
+
+                # --- SUITE LOGIQUE (POUR LES TRANSACTIONS CLASSIQUES) ---
+                account = base_account
                 recurring_exp = None
                 final_amount = abs(raw_amount)
 
@@ -314,7 +338,7 @@ class Command(BaseCommand):
                         if raw_amount >= 0
                         else TransactionType.INCOME
                     )
-                    category = category_recurring
+                    category = None
                     lbl_lower = label_or_cat.lower()
                     owner_key = user_raw.lower()
 
@@ -334,7 +358,7 @@ class Command(BaseCommand):
                             label=label_or_cat,
                             owner=member,
                             defaults={
-                                "visibility": Visibility.PRIVATE,  # On force tout en Privé
+                                "visibility": Visibility.PRIVATE,
                                 "total_amount": final_amount,
                                 "category": category,
                                 "default_bank_account": account,
@@ -353,14 +377,6 @@ class Command(BaseCommand):
                         label_or_cat, CategoryType.VARIABLE
                     )
 
-                elif section == "SAVINGS":
-                    tx_type = (
-                        TransactionType.EXPENSE
-                        if raw_amount >= 0
-                        else TransactionType.INCOME
-                    )
-                    category = get_or_create_category("Épargne", CategoryType.SAVINGS)
-
                 transactions_to_create.append(
                     Transaction(
                         bank_account=account,
@@ -378,5 +394,7 @@ class Command(BaseCommand):
                     )
                 )
 
+        # On insère tout en base !
         Transaction.objects.bulk_create(transactions_to_create, batch_size=500)
+        Transfer.objects.bulk_create(transfers_to_create, batch_size=500)
         self.stdout.write(self.style.SUCCESS("Importation réussie !"))

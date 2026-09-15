@@ -1,4 +1,6 @@
+import datetime
 from decimal import Decimal
+from itertools import chain
 from urllib.request import Request
 
 from django.contrib.auth.decorators import login_required
@@ -31,7 +33,6 @@ def dashboard_view(request: Request) -> HttpResponse:
 
     accounts_with_projections = []
     recurring_expenses = []
-    recent_transactions = []
     variable_forecasts = []
     savings_forecasts = []
 
@@ -43,16 +44,40 @@ def dashboard_view(request: Request) -> HttpResponse:
         is_active=True,
     ).distinct()
 
-    # 1. 10 Dernières transactions
-    recent_transactions = Transaction.objects.filter(
-        bank_account__in=accounts,
-        budget_month__year=target_month.year,
-        budget_month__month=target_month.month,
-    ).select_related(
-        "category",
-        "bank_account",
-        "bank_account__owner",
-        "meal_voucher_bank_account",
+    # 1. 10 Dernières activités (Transactions + Transferts)
+    recent_txs = list(
+        Transaction.objects.filter(
+            bank_account__in=accounts,
+            budget_month__year=target_month.year,
+            budget_month__month=target_month.month,
+        )
+        .select_related(
+            "category",
+            "bank_account",
+            "bank_account__owner",
+            "meal_voucher_bank_account",
+            "recurring_expense",
+        )
+        .order_by("-transaction_date", "-created_at")[:10]
+    )
+
+    recent_transfers = list(
+        Transfer.objects.filter(
+            Q(source_account__in=accounts) | Q(destination_account__in=accounts),
+            date__year=target_month.year,
+            date__month=target_month.month,
+        )
+        .select_related("source_account", "destination_account")
+        .order_by("-date", "-created_at")[:10]
+    )
+
+    # Fusion et tri par date en Python
+    recent_activity = sorted(
+        chain(recent_txs, recent_transfers),
+        key=lambda x: getattr(
+            x, "transaction_date", getattr(x, "date", datetime.date.min)
+        ),
+        reverse=True,
     )[:10]
 
     # 2. Charges fixes
@@ -210,7 +235,7 @@ def dashboard_view(request: Request) -> HttpResponse:
         "budget/dashboard.html",
         {
             "member": member,
-            "recent_transactions": recent_transactions,
+            "recent_transactions": recent_activity,
             "recurring_expenses": recurring_expenses,
             "variable_forecasts": variable_forecasts,
             "savings_forecasts": savings_forecasts,

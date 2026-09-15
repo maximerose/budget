@@ -17,7 +17,7 @@ from budget.models.category import CategoryType
 from budget.models.forecast import MonthlyForecast
 from budget.models.recurring import RecurringExpense, RecurringExpenseStatus
 from budget.models.transaction import Transfer
-from budget.utils import advance_date
+from budget.utils import advance_date, remove_accents
 from core.models import Visibility
 
 
@@ -340,6 +340,11 @@ def get_recurring_expenses_with_status(
         if not is_due_this_month and not has_override and realized == Decimal("0.00"):
             continue
 
+        # Si le montant attendu final est de 0€ (contrat à 0 ou forcé à 0 ce mois-ci)
+        # ET qu'on n'a rien payé, on la masque du dashboard.
+        if expected_total <= Decimal("0.00") and realized == Decimal("0.00"):
+            continue
+
         # --- Détermination du Statut ---
         is_past_month = target_month < today.replace(day=1)
 
@@ -400,9 +405,11 @@ def get_recurring_expenses_with_status(
 
         if shares.exists():
             account_name = "Multiples comptes"
+            acc_type = "OTHER"
         else:
             target_account = get_target_account_for_expense(expense, member)
             if target_account:
+                acc_type = target_account.account_type
                 if target_account.owner_id != member.id:
                     account_name = (
                         f"{target_account.name} ({target_account.owner.name})"
@@ -411,11 +418,13 @@ def get_recurring_expenses_with_status(
                     account_name = target_account.name
             else:
                 account_name = "Aucun compte configuré"
+                acc_type = "OTHER"
 
         results.append(
             {
                 "expense": expense,
                 "bank_account_name": account_name,
+                "account_type": acc_type,
                 "expected_amount": expected_total,  # Total Foyer
                 "realized_amount": realized,  # Total payé par tout le Foyer
                 "status": status,
@@ -427,6 +436,9 @@ def get_recurring_expenses_with_status(
                 "transactions": transactions,  # Historique pour l'UI
             }
         )
+
+    results.sort(key=lambda x: remove_accents(x["expense"].label))
+
     return results
 
 

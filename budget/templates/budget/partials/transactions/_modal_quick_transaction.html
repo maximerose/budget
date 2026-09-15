@@ -1,1 +1,7 @@
-{% include "budget/components/modal.html" with modal_title="Ajouter une dépense" modal_icon="bolt" has_cancel=True has_save=True form_id="quick-transaction-form" modal_content_template="budget/partials/transactions/_quick_transaction_form.html" %}
+<div id="quick-tx-modal-config"
+     class="hidden"
+     data-is-edit="{% if transaction or transfer %}true{% else %}false{% endif %}"
+     data-initial-type="{% if transfer %}TRANSFER{% elif transaction %}{{ transaction.transaction_type }}{% else %}EXPENSE{% endif %}">
+</div>
+
+{% include "budget/components/modal.html" with modal_title="Ajouter une opération" modal_icon="bolt" has_cancel=True has_save=True form_id="quick-transaction-form" modal_content_template="budget/partials/transactions/_quick_transaction_form.html" %}
