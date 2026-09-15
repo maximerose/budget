@@ -82,16 +82,20 @@ def calculate_monthly_projected_balances(
     for expense in recurring_expenses:
         has_override = expense.id in recurring_overrides
 
-        is_due_this_month = True
+        is_due_this_month = False
 
-        if expense.usual_due_day:
+        if expense.frequency_months == 1:
+            is_due_this_month = True
+        elif expense.usual_due_day:
             next_date = expense.usual_due_day
-            while next_date.replace(day=1) < target_month:
-                next_date = advance_date(next_date, expense.frequency_months)
-            is_due_this_month = (
-                next_date.year == target_month.year
-                and next_date.month == target_month.month
-            )
+            # Si la date de départ est dans le futur par rapport au mois consulté, elle n'est pas encore due
+            if next_date.replace(day=1) <= target_month:
+                while next_date.replace(day=1) < target_month:
+                    next_date = advance_date(next_date, expense.frequency_months)
+                is_due_this_month = (
+                    next_date.year == target_month.year
+                    and next_date.month == target_month.month
+                )
 
         if not is_due_this_month and not has_override:
             continue
@@ -310,21 +314,29 @@ def get_recurring_expenses_with_status(
             # Une charge mensuelle est DUE TOUS LES MOIS
             is_due_this_month = True
             if expense.usual_due_day:
-                # On cale le jour de prélèvement sur le mois consulté
                 last_day = calendar.monthrange(target_month.year, target_month.month)[1]
                 day = min(expense.usual_due_day.day, last_day)
                 next_date = datetime.date(target_month.year, target_month.month, day)
         elif expense.usual_due_day:
-            # Pour les fréquences > 1 mois (trimestriel, annuel...)
-            next_date = expense.usual_due_day
-            while next_date.replace(day=1) < target_month:
-                next_date = advance_date(next_date, expense.frequency_months)
-            is_due_this_month = (
-                next_date.year == target_month.year
-                and next_date.month == target_month.month
-            )
+            # Pour les fréquences > 1 mois (trimestriel, annuel, 24 mois...)
+            start_month = expense.usual_due_day.replace(day=1)
 
-        # Si pas d'échéance ce mois-ci, pas d'exception mensuelle, ET rien n'a été payé : on masque
+            # On vérifie si target_month tombe exactement sur le cycle d'échéance
+            if target_month >= start_month:
+                diff_months = (target_month.year - start_month.year) * 12 + (
+                    target_month.month - start_month.month
+                )
+                if diff_months % expense.frequency_months == 0:
+                    is_due_this_month = True
+                    last_day = calendar.monthrange(
+                        target_month.year, target_month.month
+                    )[1]
+                    day = min(expense.usual_due_day.day, last_day)
+                    next_date = datetime.date(
+                        target_month.year, target_month.month, day
+                    )
+
+        # Si la charge n'est pas due ce mois-ci, n'a pas d'override, ET rien n'a été payé : on la masque
         if not is_due_this_month and not has_override and realized == Decimal("0.00"):
             continue
 

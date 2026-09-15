@@ -3,6 +3,9 @@
 __pycache__
 *.pyc
 *.db
+*.csv
+Budget_*.xlsx
+import_ready_history.csv
 db.sqlite3
 node_modules/
 
